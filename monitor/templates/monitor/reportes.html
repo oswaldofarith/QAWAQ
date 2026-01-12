@@ -1,0 +1,217 @@
+{% extends 'base.html' %}
+
+{% block header_title %}Reportes de Disponibilidad{% endblock %}
+{% block header_subtitle %}Supervisión del tiempo de actividad global e individual de la red.{% endblock %}
+
+{% load monitor_extras %}
+{% load l10n %}
+
+{% block content %}
+<!-- Top Controls -->
+<div class="row mb-4">
+    <div class="col-12 d-flex justify-content-between align-items-center">
+        <!-- Tabs (Visual) -->
+        <ul class="nav nav-tabs border-bottom-0">
+            <li class="nav-item">
+                <a class="nav-link active bg-transparent text-primary border-primary border-top-0 border-end-0 border-start-0 border-bottom-2 fw-bold"
+                    href="#" style="border-bottom-width: 2px !important;">Reporte Global</a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link text-secondary bg-transparent border-0" href="{% url 'reporte_individual' %}">Reporte
+                    Individual</a>
+            </li>
+        </ul>
+
+        <div class="d-flex gap-2 align-items-center">
+            <span class="text-secondary small">Rango:</span>
+            <input type="date" name="start_date" form="filterForm"
+                class="form-control form-control-sm bg-dark border-secondary text-white" value="{{ start_date }}"
+                style="max-width: 130px;">
+            <span class="text-secondary">-</span>
+            <input type="date" name="end_date" form="filterForm"
+                class="form-control form-control-sm bg-dark border-secondary text-white" value="{{ end_date }}"
+                style="max-width: 130px;">
+
+            <button class="btn btn-outline-secondary d-flex align-items-center gap-2" form="filterForm">
+                <i class="bi bi-arrow-clockwise"></i> Actualizar
+            </button>
+            <div class="dropdown">
+                <button class="btn btn-outline-secondary dropdown-toggle d-flex align-items-center gap-2" type="button"
+                    data-bs-toggle="dropdown" aria-expanded="false">
+                    <i class="bi bi-download"></i> Exportar
+                </button>
+                <ul class="dropdown-menu dropdown-menu-end bg-dark border-secondary">
+                    <li><a class="dropdown-item text-white"
+                            href="{% url 'export_report' %}?format=xlsx{% if request.GET.start_date %}&start_date={{ request.GET.start_date }}{% endif %}{% if request.GET.end_date %}&end_date={{ request.GET.end_date }}{% endif %}{% if request.GET.q %}&q={{ request.GET.q }}{% endif %}{% if request.GET.marca %}&marca={{ request.GET.marca }}{% endif %}{% if request.GET.estado %}&estado={{ request.GET.estado }}{% endif %}">
+                            <i class="bi bi-file-earmark-excel me-2 text-success"></i> Excel (.xlsx)
+                        </a></li>
+                    <li><a class="dropdown-item text-white"
+                            href="{% url 'export_report' %}?format=pdf{% if request.GET.start_date %}&start_date={{ request.GET.start_date }}{% endif %}{% if request.GET.end_date %}&end_date={{ request.GET.end_date }}{% endif %}{% if request.GET.q %}&q={{ request.GET.q }}{% endif %}{% if request.GET.marca %}&marca={{ request.GET.marca }}{% endif %}{% if request.GET.estado %}&estado={{ request.GET.estado }}{% endif %}">
+                            <i class="bi bi-file-earmark-pdf me-2 text-danger"></i> PDF (.pdf)
+                        </a></li>
+                </ul>
+            </div>
+        </div>
+    </div>
+    <div class="col-12">
+        <hr class="mt-0 border-secondary border-opacity-25">
+    </div>
+</div>
+
+<!-- Filters Panel -->
+<div class="card-dashboard p-4 mb-4">
+    <form method="get" class="row g-3" id="filterForm">
+        <!-- Search -->
+        <div class="col-md-5">
+            <label class="text-secondary small text-uppercase fw-bold mb-1">BUSCAR EQUIPO</label>
+            <div class="position-relative">
+                <span class="position-absolute ms-3 top-50 translate-middle-y text-secondary">
+                    <i class="bi bi-search"></i>
+                </span>
+                <input type="text" name="q" class="form-control bg-dark border-secondary text-white ps-5"
+                    placeholder="Buscar por ID o dirección IP" value="{{ request.GET.q|default:'' }}">
+            </div>
+        </div>
+
+        <!-- Filters -->
+        <div class="col-md-3">
+            <label class="text-secondary small text-uppercase fw-bold mb-1">FILTRAR POR MARCA</label>
+            <select name="marca" class="form-select bg-dark border-secondary text-white">
+                <option value="">Todas las Marcas</option>
+                {% for marca in marcas_list %}
+                <option value="{{ marca.id }}" {% if marca.selected %}selected{% endif %}>
+                    {{ marca.nombre }}
+                </option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <div class="col-md-2">
+            <label class="text-secondary small text-uppercase fw-bold mb-1">ESTADO</label>
+            <select name="estado" class="form-select bg-dark border-secondary text-white">
+                {% for est in estados_list %}
+                <option value="{{ est.value }}" {% if est.selected %}selected{% endif %}>{{ est.label }}</option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <div class="col-md-2 d-flex align-items-end">
+            <button type="submit" class="btn btn-primary w-100">Aplicar</button>
+        </div>
+    </form>
+</div>
+
+<!-- Table Section -->
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h5 class="text-white mb-0">Resumen de Equipos</h5>
+    <span class="text-secondary small">Mostrando {{ page_obj.start_index }}-{{ page_obj.end_index }} de
+        {{page_obj.paginator.count }} dispositivos</span>
+</div>
+
+<div class="card-dashboard p-0 overflow-hidden mb-4">
+    <div class="table-responsive">
+        <table class="table table-custom table-hover mb-0">
+            <thead>
+                <tr>
+                    <th class="ps-4">ID</th>
+                    <th>DIRECCIÓN IP</th>
+                    <th>TIPO</th>
+                    <th>MARCA</th>
+                    <th style="width: 25%;">DISPONIBILIDAD</th>
+                    <th>TIEMPO INACTIVIDAD</th>
+                    <th class="text-end pe-4">ACCIONES</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for equipo in equipos %}
+                <tr>
+                    <td class="ps-4 text-white font-monospace small" style="vertical-align: middle;">
+                        {{ equipo.id_equipo }}
+                    </td>
+                    <td class="text-white font-monospace small" style="vertical-align: middle;">
+                        {{ equipo.ip }}
+                    </td>
+                    <td style="vertical-align: middle;">
+                        <span class="badge bg-dark border border-secondary bg-opacity-50 rounded-pill px-3
+                            {% if equipo.tipo.nombre == 'Router' %}text-primary
+                            {% elif equipo.tipo.nombre == 'Switch' %}text-warning
+                            {% elif 'Colector' in equipo.tipo.nombre %}text-success
+                            {% else %}text-info{% endif %}">
+                            {{ equipo.tipo.nombre|default:"Device" }}
+                        </span>
+                    </td>
+                    <td class="text-white" style="vertical-align: middle;">{{ equipo.marca }}</td>
+                    <td style="vertical-align: middle;">
+                        <div class="d-flex align-items-center gap-3">
+                            <div class="progress flex-grow-1 bg-dark border border-secondary border-opacity-25" style="height: 6px;">
+                                {% if equipo.availability >= 99 %}
+                                <div class="progress-bar bg-success" role="progressbar" style="width: {{ equipo.availability|unlocalize }}%"></div>
+                                {% elif equipo.availability >= 90 %}
+                                <div class="progress-bar bg-warning" role="progressbar" style="width: {{ equipo.availability|unlocalize }}%"></div>
+                                {% else %}
+                                <div class="progress-bar bg-danger" role="progressbar" style="width: {{ equipo.availability|unlocalize }}%"></div>
+                                {% endif %}
+                            </div>
+                            <span
+                                class="{% if equipo.availability >= 99 %}text-success{% elif equipo.availability >= 90 %}text-warning{% elif equipo.availability == 0 %}text-muted{% else %}text-danger{% endif %} fw-bold small">
+                                {{ equipo.availability|default:"0" }}%
+                            </span>
+                        </div>
+                    </td>
+                    <td class="text-white small" style="vertical-align: middle;">
+                        {% if equipo.downtime_count > 0 %}
+                        {{ equipo.downtime_count }} muestras
+                        {% comment %} Ideally convert samples to time based on interval {% endcomment %}
+                        {% else %}
+                        0s
+                        {% endif %}
+                    </td>
+                    <td class="text-end pe-4" style="vertical-align: middle;">
+                        <a href="{% url 'equipo_detail' equipo.id %}" class="btn btn-sm btn-link text-secondary p-0">
+                            <i class="bi bi-eye"></i>
+                        </a>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="7" class="text-center py-5">
+                        <p class="text-secondary mb-0">No se encontraron resultados</p>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Pagination -->
+{% if is_paginated %}
+<div class="d-flex justify-content-end">
+    <div class="btn-group">
+        {% if page_obj.has_previous %}
+        <a href="?page={{ page_obj.previous_page_number }}{% if request.GET.q %}&q={{ request.GET.q }}{% endif %}{% if request.GET.marca %}&marca={{ request.GET.marca }}{% endif %}{% if request.GET.estado %}&estado={{ request.GET.estado }}{% endif %}"
+            class="btn btn-outline-secondary btn-sm"><i class="bi bi-chevron-left"></i></a>
+        {% else %}
+        <button class="btn btn-outline-secondary btn-sm" disabled><i class="bi bi-chevron-left"></i></button>
+        {% endif %}
+
+        {% for i in page_obj.paginator.page_range %}
+        {% if page_obj.number == i %}
+        <button class="btn btn-primary btn-sm user-select-none">{{ i }}</button>
+        {% elif i > page_obj.number|add:'-3' and i < page_obj.number|add:'3' %} <a
+            href="?page={{ i }}{% if request.GET.q %}&q={{ request.GET.q }}{% endif %}{% if request.GET.marca %}&marca={{ request.GET.marca }}{% endif %}{% if request.GET.estado %}&estado={{ request.GET.estado }}{% endif %}"
+            class="btn btn-outline-secondary btn-sm">{{ i }}</a>
+            {% endif %}
+            {% endfor %}
+
+            {% if page_obj.has_next %}
+            <a href="?page={{ page_obj.next_page_number }}{% if request.GET.q %}&q={{ request.GET.q }}{% endif %}{% if request.GET.marca %}&marca={{ request.GET.marca }}{% endif %}{% if request.GET.estado %}&estado={{ request.GET.estado }}{% endif %}"
+                class="btn btn-outline-secondary btn-sm"><i class="bi bi-chevron-right"></i></a>
+            {% else %}
+            <button class="btn btn-outline-secondary btn-sm" disabled><i class="bi bi-chevron-right"></i></button>
+            {% endif %}
+    </div>
+</div>
+{% endif %}
+
+{% endblock %}

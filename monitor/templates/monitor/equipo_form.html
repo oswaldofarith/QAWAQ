@@ -1,0 +1,176 @@
+{% extends 'base.html' %}
+
+{% block header_title %}{{ title }}{% endblock %}
+{% block header_subtitle %}{% if is_create %}Registrar nuevo equipo en el sistema{% else %}Actualizar información del
+equipo{% endif %}{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <div class="card-dashboard p-4">
+            <form method="post">
+                {% csrf_token %}
+
+                {% if form.non_field_errors %}
+                <div class="alert alert-danger">
+                    {{ form.non_field_errors }}
+                </div>
+                {% endif %}
+
+                <h5 class="mb-4"><i class="bi bi-info-circle me-2"></i>Información Básica</h5>
+                <div class="row g-3 mb-4">
+                    <!-- ID Equipo -->
+                    <div class="col-md-6">
+                        <label for="id_id_equipo" class="form-label">{{ form.id_equipo.label }} <span
+                                class="text-danger">*</span></label>
+                        {{ form.id_equipo }}
+                        {% if form.id_equipo.errors %}
+                        <div class="text-danger small mt-1">{{ form.id_equipo.errors }}</div>
+                        {% endif %}
+                    </div>
+
+                    <!-- IP -->
+                    <div class="col-md-6">
+                        <label for="id_ip" class="form-label">{{ form.ip.label }} <span
+                                class="text-danger">*</span>
+                            <i class="bi bi-info-circle text-secondary" data-bs-toggle="tooltip" 
+                               title="Dirección IP del equipo (ej: 192.168.1.100)"></i>
+                        </label>
+                        {{ form.ip }}
+                        {% if form.ip.errors %}
+                        <div class="text-danger small mt-1">{{ form.ip.errors }}</div>
+                        {% endif %}
+                    </div>
+
+                    <!-- Marca -->
+                    <div class="col-md-6">
+                        <label for="id_marca" class="form-label">{{ form.marca.label }}</label>
+                        {{ form.marca }}
+                        {% if form.marca.errors %}
+                        <div class="text-danger small mt-1">{{ form.marca.errors }}</div>
+                        {% endif %}
+                        <small class="text-secondary">Opcional - Seleccione la marca del fabricante</small>
+                    </div>
+
+                    <!-- Tipo -->
+                    <div class="col-md-6">
+                        <label for="id_tipo" class="form-label">{{ form.tipo.label }}</label>
+                        {{ form.tipo }}
+                        {% if form.tipo.errors %}
+                        <div class="text-danger small mt-1">{{ form.tipo.errors }}</div>
+                        {% endif %}
+                        <small class="text-secondary">Opcional - Tipo de equipo</small>
+                    </div>
+
+                    <!-- Estado -->
+                    <div class="col-md-6">
+                        <label for="id_estado" class="form-label">{{ form.estado.label }} <span
+                                class="text-danger">*</span></label>
+                        {{ form.estado }}
+                        {% if form.estado.errors %}
+                        <div class="text-danger small mt-1">{{ form.estado.errors }}</div>
+                        {% endif %}
+                    </div>
+
+                    <!-- Medio de Comunicación -->
+                    <div class="col-md-6">
+                        <label for="id_medio_comunicacion" class="form-label">{{ form.medio_comunicacion.label }} <span
+                                class="text-danger">*</span></label>
+                        {{ form.medio_comunicacion }}
+                        {% if form.medio_comunicacion.errors %}
+                        <div class="text-danger small mt-1">{{ form.medio_comunicacion.errors }}</div>
+                        {% endif %}
+                    </div>
+
+                    <!-- Piloto -->
+                    <div class="col-md-6">
+                        <label for="id_piloto" class="form-label">{{ form.piloto.label }}
+                            <i class="bi bi-info-circle text-secondary" data-bs-toggle="tooltip" 
+                               title="Persona responsable del mantenimiento del equipo"></i>
+                        </label>
+                        {{ form.piloto }}
+                        {% if form.piloto.errors %}
+                        <div class="text-danger small mt-1">{{ form.piloto.errors }}</div>
+                        {% endif %}
+                        <small class="text-secondary">Opcional - Nombre del piloto responsable</small>
+                    </div>
+                </div>
+
+                <hr class="my-4">
+
+                <h5 class="mb-4"><i class="bi bi-geo-alt me-2"></i>Ubicación (Opcional)</h5>
+                <div class="row g-3 mb-4">
+                    <!-- Latitud -->
+                    <div class="col-md-6">
+                        <label for="id_latitud" class="form-label">{{ form.latitud.label }}
+                            <i class="bi bi-info-circle text-secondary" data-bs-toggle="tooltip" 
+                               title="Coordenada de latitud entre -90 y 90 (ej: -12.046374)"></i>
+                        </label>
+                        {{ form.latitud }}
+                        {% if form.latitud.errors %}
+                        <div class="text-danger small mt-1">{{ form.latitud.errors }}</div>
+                        {% endif %}
+                        <small class="text-secondary">Rango: -90 a 90</small>
+                    </div>
+
+                    <!-- Longitud -->
+                    <div class="col-md-6">
+                        <label for="id_longitud" class="form-label">{{ form.longitud.label }}
+                            <i class="bi bi-info-circle text-secondary" data-bs-toggle="tooltip" 
+                               title="Coordenada de longitud entre -180 y 180 (ej: -77.042793)"></i>
+                        </label>
+                        {{ form.longitud }}
+                        {% if form.longitud.errors %}
+                        <div class="text-danger small mt-1">{{ form.longitud.errors }}</div>
+                        {% endif %}
+                        <small class="text-secondary">Rango: -180 a 180</small>
+                    </div>
+
+                    <!-- Dirección -->
+                    <div class="col-12">
+                        <label for="id_direccion" class="form-label">{{ form.direccion.label }}</label>
+                        {{ form.direccion }}
+                        {% if form.direccion.errors %}
+                        <div class="text-danger small mt-1">{{ form.direccion.errors }}</div>
+                        {% endif %}
+                    </div>
+
+                    <!-- Poste -->
+                    <div class="col-md-6">
+                        <label for="id_poste" class="form-label">{{ form.poste.label }}
+                            <i class="bi bi-info-circle text-secondary" data-bs-toggle="tooltip" 
+                               title="Código del poste eléctrico donde está instalado el equipo"></i>
+                        </label>
+                        {{ form.poste }}
+                        {% if form.poste.errors %}
+                        <div class="text-danger small mt-1">{{ form.poste.errors }}</div>
+                        {% endif %}
+                        <small class="text-secondary">Opcional - Identificación del poste</small>
+                    </div>
+                </div>
+
+                <div class="d-flex gap-2 mt-4">
+                    <button type="submit" class="btn btn-primary">
+                        <i class="bi bi-check-lg me-2"></i>
+                        {% if is_create %}Crear Equipo{% else %}Guardar Cambios{% endif %}
+                    </button>
+                    <a href="{% if not is_create %}{% url 'equipo_detail' equipo.pk %}{% else %}{% url 'equipo_list' %}{% endif %}"
+                        class="btn btn-outline-secondary">
+                        <i class="bi bi-x-lg me-2"></i>Cancelar
+                    </a>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+// Initialize Bootstrap tooltips
+document.addEventListener('DOMContentLoaded', function () {
+    var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+    var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+        return new bootstrap.Tooltip(tooltipTriggerEl);
+    });
+});
+</script>
+{% endblock %}

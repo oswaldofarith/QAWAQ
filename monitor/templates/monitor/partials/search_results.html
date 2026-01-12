@@ -1,0 +1,24 @@
+{% if results %}
+<div class="list-group position-absolute w-100 shadow-lg" style="z-index: 1000; top: 100%;">
+    {% for equipo in results %}
+    <a href="{% url 'equipo_detail' equipo.id %}"
+        class="list-group-item list-group-item-action bg-dark text-light border-secondary">
+        <div class="d-flex w-100 justify-content-between align-items-center">
+            <h6 class="mb-1 text-primary fw-bold">{{ equipo.id_equipo }}</h6>
+            <small class="text-muted">{{ equipo.marca.nombre }}</small>
+        </div>
+        <p class="mb-1 small font-monospace"><i class="bi bi-hdd-network me-2"></i>{{ equipo.ip }}</p>
+    </a>
+    {% endfor %}
+    <a href="{% url 'equipo_list' %}?q={{ request.GET.q }}"
+        class="list-group-item list-group-item-action bg-dark text-center text-muted small border-secondary">
+        Ver todos los resultados para "{{ request.GET.q }}"
+    </a>
+</div>
+{% elif request.GET.q|length >= 2 %}
+<div class="list-group position-absolute w-100 shadow-lg" style="z-index: 1000; top: 100%;">
+    <div class="list-group-item bg-dark text-muted border-secondary text-center py-3">
+        <i class="bi bi-search me-2"></i>No se encontraron resultados
+    </div>
+</div>
+{% endif %}

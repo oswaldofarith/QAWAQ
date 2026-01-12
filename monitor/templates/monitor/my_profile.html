@@ -1,0 +1,114 @@
+{% extends 'base.html' %}
+
+{% block header_title %}Mi Perfil{% endblock %}
+{% block header_subtitle %}Gestiona tu información personal{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-lg-8 mx-auto">
+        <div class="card-dashboard p-4">
+            <form method="post" enctype="multipart/form-data">
+                {% csrf_token %}
+                
+                {% if form.non_field_errors %}
+                <div class="alert alert-danger">
+                    {% for error in form.non_field_errors %}
+                    <div><i class="bi bi-exclamation-triangle me-2"></i>{{ error }}</div>
+                    {% endfor %}
+                </div>
+                {% endif %}
+                
+                <div class="row">
+                    <!-- Avatar Section -->
+                    <div class="col-md-4 text-center mb-4">
+                        <h6 class="mb-3">Foto de Perfil</h6>
+                        {% if profile.avatar %}
+                        <img src="{{ profile.avatar.url }}" alt="{{ user.username }}"
+                            class="rounded-circle mb-3" style="width: 150px; height: 150px; object-fit: cover;">
+                        {% else %}
+                        <div class="rounded-circle bg-primary text-white d-flex align-items-center justify-content-center mx-auto mb-3"
+                            style="width: 150px; height: 150px; font-size: 3rem; font-weight: bold;">
+                            {{ user.username|slice:":2"|upper }}
+                        </div>
+                        {% endif %}
+                        <div>
+                            {{ form.avatar }}
+                            {% if form.avatar.errors %}
+                            <div class="text-danger small mt-1">{{ form.avatar.errors }}</div>
+                            {% endif %}
+                            <small class="text-secondary d-block mt-2">Formatos: JPG, PNG, GIF</small>
+                        </div>
+                    </div>
+                    
+                    <!-- Personal Information -->
+                    <div class="col-md-8">
+                        <h6 class="mb-3">Información Personal</h6>
+                        
+                        <!-- First Name -->
+                        <div class="mb-3">
+                            <label for="id_first_name" class="form-label">{{ form.first_name.label }}</label>
+                            {{ form.first_name }}
+                            {% if form.first_name.errors %}
+                            <div class="text-danger small mt-1">{{ form.first_name.errors }}</div>
+                            {% endif %}
+                        </div>
+                        
+                        <!-- Last Name -->
+                        <div class="mb-3">
+                            <label for="id_last_name" class="form-label">{{ form.last_name.label }}</label>
+                            {{ form.last_name }}
+                            {% if form.last_name.errors %}
+                            <div class="text-danger small mt-1">{{ form.last_name.errors }}</div>
+                            {% endif %}
+                        </div>
+                        
+                        <!-- Email -->
+                        <div class="mb-3">
+                            <label for="id_email" class="form-label">{{ form.email.label }} <span class="text-danger">*</span></label>
+                            {{ form.email }}
+                            {% if form.email.errors %}
+                            <div class="text-danger small mt-1">{{ form.email.errors }}</div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+                
+                <hr class="my-4">
+                
+                <!-- Account Information (Read-only) -->
+                <h6 class="mb-3">Información de Cuenta</h6>
+                <div class="row g-3">
+                    <div class="col-md-4">
+                        <label class="text-secondary small">Usuario</label>
+                        <div class="fw-bold">{{ user.username }}</div>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="text-secondary small">Rol</label>
+                        <div>
+                            {% if user.profile.role == 'admin' %}
+                            <span class="badge bg-primary"><i class="bi bi-shield-check me-1"></i>Administrador</span>
+                            {% else %}
+                            <span class="badge bg-secondary"><i class="bi bi-person me-1"></i>Operador</span>
+                            {% endif %}
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="text-secondary small">Miembro desde</label>
+                        <div>{{ user.date_joined|date:"d/m/Y" }}</div>
+                    </div>
+                </div>
+                
+                <!-- Action Buttons -->
+                <div class="d-flex gap-2 mt-4">
+                    <button type="submit" class="btn btn-primary">
+                        <i class="bi bi-check-lg me-2"></i>Guardar Cambios
+                    </button>
+                    <a href="{% url 'dashboard' %}" class="btn btn-outline-secondary">
+                        <i class="bi bi-x-lg me-2"></i>Cancelar
+                    </a>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,93 @@
+{% extends 'base.html' %}
+
+{% block header_title %}{{ evento|default:"Nuevo" }} Evento{% endblock %}
+{% block header_subtitle %}Evento de facturación{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-8 offset-md-2">
+        <div class="card bg-dark border-secondary">
+            <div class="card-header bg-secondary">
+                <h5 class="mb-0">
+                    {% if evento %}
+                        Editar Evento: {{ evento.get_display_name }}
+                    {% else %}
+                        Nuevo Evento de Facturación
+                    {% endif %}
+                </h5>
+            </div>
+            <div class="card-body">
+                <form method="post">
+                    {% csrf_token %}
+                    
+                    <div class="mb-3">
+                        <label for="{{ form.porcion.id_for_label }}" class="form-label text-white">
+                            {{ form.porcion.label }}
+                        </label>
+                        {{ form.porcion }}
+                        {% if form.porcion.errors %}
+                            <div class="text-danger mt-1">
+                                {{ form.porcion.errors }}
+                            </div>
+                        {% endif %}
+                        <small class="text-muted">El ciclo de facturación se creará automáticamente según la fecha y el tipo de porción.</small>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="{{ form.tipo_evento.id_for_label }}" class="form-label text-white">
+                            {{ form.tipo_evento.label }}
+                            <i class="bi bi-info-circle text-secondary" data-bs-toggle="tooltip" 
+                               title="Prefacturación: Preparación del ciclo. Facturación: Emisión de facturas"></i>
+                        </label>
+                        {{ form.tipo_evento }}
+                        {% if form.tipo_evento.errors %}
+                            <div class="text-danger mt-1">
+                                {{ form.tipo_evento.errors }}
+                            </div>
+                        {% endif %}
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="{{ form.fecha.id_for_label }}" class="form-label text-white">
+                            {{ form.fecha.label }}
+                            <i class="bi bi-info-circle text-secondary" data-bs-toggle="tooltip" 
+                               title="El ciclo de facturación se creará automáticamente según el mes/año"></i>
+                        </label>
+                        {{ form.fecha }}
+                        {% if form.fecha.errors %}
+                            <div class="text-danger mt-1">
+                                {{ form.fecha.errors }}
+                            </div>
+                        {% endif %}
+                    </div>
+                    
+                    {% if form.non_field_errors %}
+                        <div class="alert alert-danger">
+                            {{ form.non_field_errors }}
+                        </div>
+                    {% endif %}
+                    
+                    <div class="d-flex gap-2">
+                        <button type="submit" class="btn btn-primary">
+                            <i class="bi bi-save"></i> Guardar
+                        </button>
+                        <a href="{% url 'calendario' %}" class="btn btn-secondary">
+                            <i class="bi bi-x-circle"></i> Cancelar
+                        </a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Initialize Bootstrap tooltips
+document.addEventListener('DOMContentLoaded', function () {
+    var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+    var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+        return new bootstrap.Tooltip(tooltipTriggerEl);
+    });
+});
+</script>
+{% endblock %}

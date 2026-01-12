@@ -1,0 +1,83 @@
+{% extends 'base.html' %}
+
+{% block header_title %}Eliminar Equipo{% endblock %}
+{% block header_subtitle %}Confirmación de eliminación{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-lg-8 mx-auto">
+        <div class="card-dashboard p-4">
+            <div class="text-center mb-4">
+                <i class="bi bi-exclamation-triangle-fill text-warning" style="font-size: 4rem;"></i>
+            </div>
+
+            <h5 class="text-center mb-4">¿Estás seguro que deseas eliminar este equipo?</h5>
+
+            <!-- Equipment Details -->
+            <div class="card bg-dark bg-opacity-25 border-secondary p-3 mb-4">
+                <div class="row g-2">
+                    <div class="col-md-6">
+                        <small class="text-secondary">ID Equipo:</small>
+                        <div class="fw-bold">{{ equipo.id_equipo }}</div>
+                    </div>
+                    <div class="col-md-6">
+                        <small class="text-secondary">Dirección IP:</small>
+                        <div class="fw-bold">{{ equipo.ip }}</div>
+                    </div>
+                    <div class="col-md-6">
+                        <small class="text-secondary">Marca:</small>
+                        <div>{{ equipo.marca|default:"N/A" }}</div>
+                    </div>
+                    <div class="col-md-6">
+                        <small class="text-secondary">Tipo:</small>
+                        <div>{{ equipo.tipo|default:"N/A" }}</div>
+                    </div>
+                    <div class="col-md-6">
+                        <small class="text-secondary">Estado:</small>
+                        <div>
+                            {% if equipo.estado == 'ACTIVO' %}
+                            <span class="badge bg-success">{{ equipo.get_estado_display }}</span>
+                            {% else %}
+                            <span class="badge bg-secondary">{{ equipo.get_estado_display }}</span>
+                            {% endif %}
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <small class="text-secondary">Medio Comunicación:</small>
+                        <div>{{ equipo.get_medio_comunicacion_display }}</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Warning about Historical Data -->
+            {% if history_count > 0 %}
+            <div class="alert alert-warning">
+                <i class="bi bi-exclamation-triangle me-2"></i>
+                <strong>Atención:</strong> Este equipo tiene <strong>{{ history_count }}</strong> registro(s) de
+                historial de disponibilidad.
+                Al eliminarlo, también se eliminará todo su historial de forma permanente.
+            </div>
+            {% else %}
+            <div class="alert alert-info">
+                <i class="bi bi-info-circle me-2"></i>
+                Este equipo no tiene historial de disponibilidad registrado.
+            </div>
+            {% endif %}
+
+            <p class="text-secondary text-center mb-4">
+                Esta acción no se puede deshacer.
+            </p>
+
+            <form method="post" class="text-center">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-danger me-2">
+                    <i class="bi bi-trash me-2"></i>Sí, Eliminar Equipo
+                </button>
+                <a href="{% url 'equipo_detail' equipo.pk %}" class="btn btn-secondary">
+                    <i class="bi bi-x-lg me-2"></i>Cancelar
+                </a>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

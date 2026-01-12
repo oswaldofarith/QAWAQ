@@ -1,0 +1,72 @@
+{% load monitor_extras %}
+{% for equipo in equipos %}
+<tr>
+    <td class="ps-4 text-white font-monospace small" style="vertical-align: middle;">
+        <a href="{% url 'equipo_detail' equipo.id %}" class="text-white text-decoration-none hover-primary">
+            {{ equipo.id_equipo }}
+        </a>
+    </td>
+    <td class="text-white font-monospace small" style="vertical-align: middle;">
+        {{ equipo.ip }}
+    </td>
+
+    <td style="vertical-align: middle;">
+        <span class="badge bg-dark border border-secondary text-info bg-opacity-50 rounded-pill px-3">
+            {{ equipo.tipo.nombre|default:"Dispositivo" }}
+        </span>
+    </td>
+    <td style="vertical-align: middle;">
+        <span style="color: {{ equipo.marca.color|default:'#6B7280' }}; font-weight: 500;">
+            {{ equipo.marca.nombre }}
+        </span>
+    </td>
+    <td class="text-secondary" style="vertical-align: middle;">
+        {% if equipo.medio_comunicacion == 'FIBRA' %}Fibra{% else %}Celular{% endif %}
+    </td>
+    <td style="vertical-align: middle;">
+        {% if equipo.is_online %}
+        <div class="d-flex align-items-center text-success fw-bold small">
+            <span class="status-dot bg-success me-2"></span> Online
+        </div>
+        {% else %}
+        <div class="d-flex align-items-center text-danger fw-bold small">
+            <span class="status-dot bg-danger me-2"></span> Offline
+        </div>
+        {% endif %}
+    </td>
+    <td class="text-secondary small" style="vertical-align: middle;">
+        {{ equipo.last_seen|human_time }}
+    </td>
+    <td class="text-white font-monospace small" style="vertical-align: middle;">
+        {% if equipo.last_latency %}
+        {{ equipo.last_latency }}ms
+        {% else %}
+        <span class="text-muted">-</span>
+        {% endif %}
+    </td>
+    <td class="text-end pe-4" style="vertical-align: middle;">
+        <div class="d-flex justify-content-end gap-1">
+            <!-- Ping Action (Modal) -->
+            <button class="btn btn-sm btn-outline-secondary border-0 text-white hover-info" title="Ping Sostenido"
+                hx-get="{% url 'ping_modal' equipo.id %}" hx-target="#modal-container" hx-swap="innerHTML">
+                <i class="bi bi-broadcast"></i>
+            </button>
+
+            <!-- View Detail Action -->
+            <a href="{% url 'equipo_detail' equipo.id %}"
+                class="btn btn-sm btn-outline-secondary border-0 text-white hover-primary" title="Ver Detalle">
+                <i class="bi bi-eye"></i>
+            </a>
+        </div>
+    </td>
+</tr>
+{% empty %}
+<tr>
+    <td colspan="9" class="text-center py-5">
+        <div class="text-muted opacity-50 mb-2">
+            <i class="bi bi-inbox fs-1"></i>
+        </div>
+        <p class="text-secondary mb-0">No se encontraron equipos</p>
+    </td>
+</tr>
+{% endfor %}

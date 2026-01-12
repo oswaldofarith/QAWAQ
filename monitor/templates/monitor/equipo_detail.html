@@ -1,0 +1,312 @@
+{% extends 'base.html' %}
+
+{% block header_title %}{{ equipo.id_equipo }}{% endblock %}
+{% block header_subtitle %}{{ equipo.tipo }} {{ equipo.marca }} • Última actualización: {{ equipo.last_seen|timesince }}
+atrás{% endblock %}
+
+{% block content %}
+<!-- Header Actions & Status -->
+<div class="d-flex justify-content-between align-items-center mb-4 mt-n4">
+    <div class="d-flex align-items-center gap-3">
+        {% if equipo.is_online %}
+        <span
+            class="badge bg-success bg-opacity-25 text-success border border-success border-opacity-25 px-3 py-2 rounded-pill">
+            <span class="status-dot bg-success"></span> ONLINE
+        </span>
+        {% else %}
+        <span
+            class="badge bg-danger bg-opacity-25 text-danger border border-danger border-opacity-25 px-3 py-2 rounded-pill">
+            <span class="status-dot bg-danger"></span> OFFLINE
+        </span>
+        {% endif %}
+    </div>
+    <div class="d-flex gap-2">
+        <button class="btn btn-outline-success" hx-get="{% url 'ping_modal' equipo.id %}" hx-target="#modal-container"
+            hx-swap="innerHTML">
+            <i class="bi bi-broadcast me-2"></i>Ping en Vivo
+        </button>
+        {% if user.profile.role == 'admin' %}
+        <a href="{% url 'equipo_update' equipo.pk %}" class="btn btn-outline-primary">
+            <i class="bi bi-pencil-fill me-2"></i>Editar
+        </a>
+        <a href="{% url 'equipo_delete' equipo.pk %}" class="btn btn-outline-danger">
+            <i class="bi bi-trash me-2"></i>Eliminar
+        </a>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Main Grid -->
+<div class="row g-4">
+    <!-- General Info Card -->
+    <div class="col-lg-8">
+        <div class="card-dashboard h-100 p-4">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h5 class="text-white mb-0">Información General</h5>
+                <i class="bi bi-info-circle text-secondary"></i>
+            </div>
+
+            <div class="row g-4">
+                <!-- Row 1 -->
+                <div class="col-md-6">
+                    <label class="text-secondary small text-uppercase fw-bold mb-1">DIRECCIÓN IP</label>
+                    <div class="d-flex align-items-center gap-2">
+                        <div
+                            class="font-monospace bg-dark p-2 rounded border border-secondary border-opacity-25 text-white fit-content">
+                            {{ equipo.ip }}
+                        </div>
+                        <button class="btn btn-link text-secondary p-0"
+                            onclick="navigator.clipboard.writeText('{{ equipo.ip }}'); this.innerHTML='<i class=\'bi bi-check-lg text-success\'></i>'; setTimeout(() => this.innerHTML='<i class=\'bi bi-clipboard\'></i>', 2000)"
+                            title="Copiar IP">
+                            <i class="bi bi-clipboard"></i>
+                        </button>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <label class="text-secondary small text-uppercase fw-bold mb-1">ID DEL EQUIPO</label>
+                    <div class="text-white fw-bold fs-5">{{ equipo.id_equipo }}</div>
+                </div>
+
+                <!-- Row 2 -->
+                <div class="col-md-6">
+                    <label class="text-secondary small text-uppercase fw-bold mb-1">MARCA</label>
+                    <div class="text-white d-flex align-items-center gap-2">
+                        {{ equipo.marca }}
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <label class="text-secondary small text-uppercase fw-bold mb-1">TIPO DE DISPOSITIVO</label>
+                    <div class="text-white"><i class="bi bi-router me-2"></i>{{ equipo.tipo }}</div>
+                </div>
+
+                <!-- Row 3 -->
+                <div class="col-md-6">
+                    <label class="text-secondary small text-uppercase fw-bold mb-1">MEDIO DE COMUNICACIÓN</label>
+                    <div class="text-info">
+                        {% if equipo.medio_comunicacion == 'FIBRA' %}
+                        <i class="bi bi-strava me-2"></i>Fibra Óptica
+                        {% else %}
+                        <i class="bi bi-broadcast-pin me-2"></i>Celular
+                        {% endif %}
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <label class="text-secondary small text-uppercase fw-bold mb-1">DIRECCIÓN FÍSICA</label>
+                    <div class="text-white">{{ equipo.direccion|default:"No registrada" }}</div>
+                </div>
+
+                <!-- Row 4 -->
+                <div class="col-md-6">
+                    <label class="text-secondary small text-uppercase fw-bold mb-1">POSTE</label>
+                    <div class="d-flex gap-2">
+                        <div class="text-white">{{ equipo.poste|default:"-" }}</div>
+                        {% if equipo.canasta %}
+                        <span class="badge bg-dark border border-secondary text-secondary ms-2">Canasta</span>
+                        {% endif %}
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <label class="text-secondary small text-uppercase fw-bold mb-1">PILOTO</label>
+                    <div class="text-white">
+                        {{ equipo.piloto|default:"No asignado" }}
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+    <!-- Map Card -->
+    <div class="col-lg-4">
+        <div class="card-dashboard h-100 p-0 overflow-hidden position-relative">
+            <div
+                class="p-3 bg-dark bg-opacity-50 position-absolute top-0 start-0 z-1 w-100 d-flex justify-content-between">
+                <div>
+                    <small class="text-white fw-bold d-block">Ubicación</small>
+                    <small class="text-white fw-bold">Geográfica</small>
+                </div>
+                <div class="text-end font-monospace small text-secondary">
+                    <div>{{ equipo.latitud }}</div>
+                    <div>{{ equipo.longitud }}</div>
+                </div>
+            </div>
+            <div id="map" class="h-100 w-100" style="min-height: 400px; background-color: #1a1f2c;"></div>
+        </div>
+    </div>
+
+    <!-- Availability Chart -->
+    <div class="col-12">
+        <div class="card-dashboard p-4">
+            <div class="d-flex justify-content-between align-items-start mb-4">
+                <div>
+                    <h5 class="text-white mb-1">Disponibilidad</h5>
+                    <small class="text-secondary">Monitoreo de ping (ICMP)</small>
+                </div>
+                <a href="{% url 'reporte_individual' %}?equipo_code={{ equipo.id_equipo }}"
+                    class="btn btn-outline-primary btn-sm rounded-pill px-3">
+                    Ver Reporte Completo <i class="bi bi-arrow-right ms-2"></i>
+                </a>
+            </div>
+
+            <div id="latencyChart" style="height: 300px;"></div>
+
+            <div
+                class="d-flex justify-content-between text-secondary small mt-3 px-3 border-top border-secondary border-opacity-10 pt-3">
+                <div class="d-flex gap-4">
+                    <div class="d-flex align-items-center gap-2">
+                        <i class="bi bi-percent text-success fs-5"></i> Tasa de Disponibilidad: {{ availability }}%
+                    </div>
+                </div>
+                <div>Últimas 24 horas</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Data Passing -->
+{{ chart_labels|json_script:"chart-labels" }}
+{{ chart_values|json_script:"chart-values" }}
+{{ equipo.latitud|json_script:"lat-data" }}
+{{ equipo.longitud|json_script:"lon-data" }}
+{{ equipo.id_equipo|json_script:"id-data" }}
+
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        // --- MAP INIT ---
+        var lat = JSON.parse(document.getElementById('lat-data').textContent);
+        var lon = JSON.parse(document.getElementById('lon-data').textContent);
+        var idEquipo = JSON.parse(document.getElementById('id-data').textContent);
+
+        if (lat && lon) {
+            var map = L.map('map', {
+                zoomControl: false,
+                attributionControl: false
+            }).setView([lat, lon], 13);
+
+            var darkLayer = L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', { maxZoom: 19 });
+            var lightLayer = L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', { maxZoom: 19 });
+
+            // Initial theme setup
+            var currentTheme = document.documentElement.getAttribute('data-bs-theme');
+            if (currentTheme === 'light') {
+                lightLayer.addTo(map);
+            } else {
+                darkLayer.addTo(map);
+            }
+
+            // Theme change listener
+            const observer = new MutationObserver(function (mutations) {
+                mutations.forEach(function (mutation) {
+                    if (mutation.attributeName === "data-bs-theme") {
+                        var newTheme = document.documentElement.getAttribute('data-bs-theme');
+                        if (newTheme === 'light') {
+                            map.removeLayer(darkLayer);
+                            lightLayer.addTo(map);
+                        } else {
+                            map.removeLayer(lightLayer);
+                            darkLayer.addTo(map);
+                        }
+                    }
+                });
+            });
+
+            observer.observe(document.documentElement, {
+                attributes: true,
+                attributeFilter: ["data-bs-theme"]
+            });
+
+            var icon = L.divIcon({
+                className: 'custom-map-marker',
+                html: `<div style="background-color: var(--bg-card); color: var(--text-primary); padding: 4px 8px; border-radius: 4px; font-weight: bold; font-size: 10px; border: 1px solid var(--border-light); white-space: nowrap;">${idEquipo}</div>`,
+                iconSize: [60, 20],
+                iconAnchor: [30, 25]
+            });
+
+            L.marker([lat, lon], { icon: icon }).addTo(map)
+                .bindPopup(`<b>${idEquipo}</b><br>${lat}, ${lon}`);
+
+            L.control.zoom({ position: 'bottomright' }).addTo(map);
+        } else {
+            document.getElementById('map').innerHTML = '<div class="d-flex align-items-center justify-content-center h-100 text-muted">Sin coordenadas</div>';
+        }
+
+        // --- CHART INIT ---
+        var chartLabels = JSON.parse(document.getElementById('chart-labels').textContent);
+        var chartValues = JSON.parse(document.getElementById('chart-values').textContent);
+
+        var options = {
+            series: [{
+                name: 'Estado',
+                data: chartValues
+            }],
+            chart: {
+                type: 'area',
+                height: 300,
+                toolbar: { show: false },
+                fontFamily: 'Inter, sans-serif',
+                background: 'transparent',
+                animations: { enabled: true }
+            },
+            colors: ['#22c55e'], // Green for success
+            fill: {
+                type: 'gradient',
+                gradient: {
+                    shadeIntensity: 1,
+                    opacityFrom: 0.4,
+                    opacityTo: 0.05,
+                    stops: [0, 90, 100]
+                }
+            },
+            dataLabels: { enabled: false },
+            xaxis: {
+                type: 'category',
+                categories: chartLabels,
+                tickAmount: 10,
+                labels: {
+                    style: { colors: '#8e95a3' }
+                },
+                axisBorder: { show: false },
+                axisTicks: { show: false },
+                tooltip: { enabled: false }
+            },
+            stroke: {
+                curve: 'stepline', // Step chart to clearly show state changes
+                width: 2
+            },
+
+            yaxis: {
+                tickAmount: 1,
+                min: 0,
+                max: 1,
+                labels: {
+                    style: { colors: '#8e95a3' },
+                    formatter: function (val) {
+                        return val === 1 ? 'Online' : 'Offline';
+                    }
+                }
+            },
+            grid: {
+                borderColor: '#374151',
+                strokeDashArray: 4,
+                yaxis: { lines: { show: true } }
+            },
+            theme: { mode: 'dark' },
+            tooltip: {
+                theme: 'dark',
+                y: {
+                    formatter: function (val) {
+                        return val === 1 ? 'Online' : 'Offline';
+                    }
+                }
+            }
+        };
+
+        if (chartValues.length === 0) {
+            document.querySelector("#latencyChart").innerHTML = '<div class="h-100 d-flex align-items-center justify-content-center text-muted">No hay datos históricos disponibles</div>';
+        } else {
+            var chart = new ApexCharts(document.querySelector("#latencyChart"), options);
+            chart.render();
+        }
+    });
+</script>
+{% endblock %}

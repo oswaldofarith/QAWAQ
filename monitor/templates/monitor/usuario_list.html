@@ -1,0 +1,126 @@
+{% extends 'base.html' %}
+
+{% block header_title %}Gestión de Usuarios{% endblock %}
+{% block header_subtitle %}Administración de usuarios del sistema • {{ usuarios|length }} Usuarios Activos{% endblock %}
+
+{% block content %}
+<!-- Header Actions -->
+<div class="row mb-4">
+    <div class="col-12 d-flex justify-content-between align-items-center">
+        <div></div>
+        <a href="{% url 'usuario_create' %}" class="btn btn-primary">
+            <i class="bi bi-person-plus me-2"></i>Nuevo Usuario
+        </a>
+    </div>
+</div>
+
+<!-- Filters -->
+<div class="card-dashboard p-4 mb-4">
+    <div class="row g-3">
+        <div class="col-md-8">
+            <input type="text" name="q" value="{{ search_query }}" class="form-control bg-dark border-secondary text-white" placeholder="Buscar por nombre, usuario o email..." id="searchInput">
+        </div>
+        <div class="col-md-4">
+            <select name="role" class="form-select bg-dark border-secondary text-white" id="roleFilter">
+                <option value="">Todos los roles</option>
+                <option value="admin" {% if role_filter == 'admin' %}selected{% endif %}>Administrador</option>
+                <option value="operator" {% if role_filter == 'operator' %}selected{% endif %}>Operador</option>
+            </select>
+        </div>
+    </div>
+</div>
+
+<!-- Users Grid -->
+<div class="row g-4">
+    {% for usuario in usuarios %}
+    <div class="col-md-6 col-lg-4">
+        <div class="card-dashboard p-4 h-100">
+            <div class="d-flex align-items-center mb-3">
+                <!-- Avatar -->
+                <div class="me-3">
+                    {% if usuario.profile.avatar %}
+                    <img src="{{ usuario.profile.avatar.url }}" alt="{{ usuario.username }}" class="rounded-circle" style="width: 60px; height: 60px; object-fit: cover;">
+                    {% else %}
+                    <div class="rounded-circle bg-secondary d-flex align-items-center justify-content-center" style="width: 60px; height: 60px;">
+                        <span class="text-white fw-bold fs-4">{{ usuario.username|slice:":1"|upper }}</span>
+                    </div>
+                    {% endif %}
+                </div>
+                
+                <!-- User Info -->
+                <div class="flex-grow-1">
+                    <h6 class="text-white mb-1">{{ usuario.profile.get_full_name }}</h6>
+                    <small class="text-secondary d-block">@{{ usuario.username }}</small>
+                    {% if usuario.profile.role == 'admin' %}
+                    <span class="badge bg-primary mt-1">Administrador</span>
+                    {% else %}
+                    <span class="badge bg-secondary mt-1">Operador</span>
+                    {% endif %}
+                </div>
+            </div>
+            
+            <div class="mb-3">
+                <small class="text-secondary">
+                    <i class="bi bi-envelope me-1"></i>{{ usuario.email|default:"-" }}
+                </small>
+            </div>
+            
+            <!-- Actions -->
+            <div class="d-flex gap-2">
+                <a href="{% url 'usuario_detail' usuario.pk %}" class="btn btn-sm btn-outline-primary flex-grow-1">
+                    <i class="bi bi-eye me-1"></i>Ver
+                </a>
+                <a href="{% url 'usuario_update' usuario.pk %}" class="btn btn-sm btn-outline-secondary">
+                    <i class="bi bi-pencil"></i>
+                </a>
+            </div>
+        </div>
+    </div>
+    {% empty %}
+    <div class="col-12">
+        <div class="card-dashboard p-5 text-center">
+            <i class="bi bi-people fs-1 text-secondary mb-3"></i>
+            <p class="text-secondary mb-0">No se encontraron usuarios</p>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+
+<!-- Pagination -->
+{% if is_paginated %}
+<div class="mt-4 d-flex justify-content-center">
+    <nav>
+        <ul class="pagination">
+            {% if page_obj.has_previous %}
+            <li class="page-item"><a class="page-link" href="?page={{ page_obj.previous_page_number }}">Anterior</a></li>
+            {% endif %}
+            <li class="page-item active"><span class="page-link">{{ page_obj.number }}</span></li>
+            {% if page_obj.has_next %}
+            <li class="page-item"><a class="page-link" href="?page={{ page_obj.next_page_number }}">Siguiente</a></li>
+            {% endif %}
+        </ul>
+    </nav>
+</div>
+{% endif %}
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const searchInput = document.getElementById('searchInput');
+    const roleFilter = document.getElementById('roleFilter');
+    
+    function applyFilters() {
+        const params = new URLSearchParams();
+        if (searchInput.value) params.set('q', searchInput.value);
+        if (roleFilter.value) params.set('role', roleFilter.value);
+        window.location.href = '?' + params.toString();
+    }
+    
+    searchInput.addEventListener('keyup', function(e) {
+        if (e.key === 'Enter') applyFilters();
+    });
+    
+    roleFilter.addEventListener('change', applyFilters);
+});
+</script>
+
+{% endblock %}

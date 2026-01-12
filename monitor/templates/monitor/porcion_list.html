@@ -1,0 +1,143 @@
+{% extends 'base.html' %}
+
+{% block header_title %}Porciones{% endblock %}
+{% block header_subtitle %}Gestión de porciones de facturación{% endblock %}
+
+{% block content %}
+<div class="row mb-3">
+    <div class="col-md-12">
+        <!-- Filter and Actions -->
+        <div class="card border mb-3">
+            <div class="card-body">
+                <div class="row align-items-center">
+                    <div class="col-md-6">
+                        <form method="get" class="d-flex gap-2">
+                            <select name="tipo" class="form-select" onchange="this.form.submit()">
+                                <option value="">Todos los tipos</option>
+                                <option value="MASIVO" {% if tipo_filter == 'MASIVO' %}selected{% endif %}>Masivo</option>
+                                <option value="ESPECIAL" {% if tipo_filter == 'ESPECIAL' %}selected{% endif %}>Especial</option>
+                            </select>
+                        </form>
+                    </div>
+                    <div class="col-md-6 text-end">
+                        <a href="{% url 'porcion_create' %}" class="btn btn-primary">
+                            <i class="bi bi-plus-circle"></i> Nueva Porción
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Portions List -->
+        <div class="card border">
+            <div class="card-body">
+                {% if porciones %}
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th>Nombre</th>
+                                <th>Tipo</th>
+                                <th>Descripción</th>
+                                <th class="text-end">Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for porcion in porciones %}
+                            <tr>
+                                <td class="fw-bold">{{ porcion.nombre }}</td>
+                                <td>
+                                    {% if porcion.tipo == 'MASIVO' %}
+                                        <span class="badge bg-info">Masivo</span>
+                                    {% else %}
+                                        <span class="badge bg-warning">Especial</span>
+                                    {% endif %}
+                                </td>
+                                <td class="text-muted">{{ porcion.descripcion|truncatewords:10|default:"Sin descripción" }}</td>
+                                <td class="text-end">
+                                    <div class="btn-group btn-group-sm" role="group">
+                                        <a href="{% url 'porcion_update' porcion.pk %}" 
+                                           class="btn btn-outline-primary"
+                                           title="Editar">
+                                            <i class="bi bi-pencil"></i>
+                                        </a>
+                                        <button type="button" 
+                                                class="btn btn-outline-danger"
+                                                data-bs-toggle="modal"
+                                                data-bs-target="#deleteModal{{ porcion.pk }}"
+                                                title="Eliminar">
+                                            <i class="bi bi-trash"></i>
+                                        </button>
+                                    </div>
+                                    
+                                    <!-- Delete Confirmation Modal -->
+                                    <div class="modal fade" id="deleteModal{{ porcion.pk }}" tabindex="-1">
+                                        <div class="modal-dialog">
+                                            <div class="modal-content">
+                                                <div class="modal-header">
+                                                    <h5 class="modal-title">Confirmar Eliminación</h5>
+                                                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                                                </div>
+                                                <div class="modal-body">
+                                                    ¿Está seguro de eliminar la porción <strong>{{ porcion.nombre }}</strong>?
+                                                    <br><small class="text-warning">Esto también eliminará todos los eventos asociados.</small>
+                                                </div>
+                                                <div class="modal-footer">
+                                                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                                                    <form method="post" action="{% url 'porcion_delete' porcion.pk %}" style="display: inline;">
+                                                        {% csrf_token %}
+                                                        <button type="submit" class="btn btn-danger">Eliminar</button>
+                                                    </form>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                
+                <!-- Pagination -->
+                {% if is_paginated %}
+                <nav>
+                    <ul class="pagination justify-content-center">
+                        {% if page_obj.has_previous %}
+                        <li class="page-item">
+                            <a class="page-link" href="?page=1{% if tipo_filter %}&tipo={{ tipo_filter }}{% endif %}">Primero</a>
+                        </li>
+                        <li class="page-item">
+                            <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if tipo_filter %}&tipo={{ tipo_filter }}{% endif %}">Anterior</a>
+                        </li>
+                        {% endif %}
+                        
+                        <li class="page-item active">
+                            <span class="page-link bg-primary border-primary">
+                                {{ page_obj.number }} de {{ page_obj.paginator.num_pages }}
+                            </span>
+                        </li>
+                        
+                        {% if page_obj.has_next %}
+                        <li class="page-item">
+                            <a class="page-link" href="?page={{ page_obj.next_page_number }}{% if tipo_filter %}&tipo={{ tipo_filter }}{% endif %}">Siguiente</a>
+                        </li>
+                        <li class="page-item">
+                            <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}{% if tipo_filter %}&tipo={{ tipo_filter }}{% endif %}">Último</a>
+                        </li>
+                        {% endif %}
+                    </ul>
+                </nav>
+                {% endif %}
+                
+                {% else %}
+                <div class="alert alert-info">
+                    No hay porciones registradas.
+                    <a href="{% url 'porcion_create' %}" class="alert-link">Crear la primera porción</a>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

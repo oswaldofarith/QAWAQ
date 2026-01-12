@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <style>
+        @page {
+            size: a4 portrait;
+
+            @frame header_frame {
+                -pdf-frame-content: header_content;
+                left: 50pt;
+                width: 512pt;
+                top: 50pt;
+                height: 40pt;
+            }
+
+            @frame content_frame {
+                left: 50pt;
+                width: 512pt;
+                top: 90pt;
+                height: 632pt;
+            }
+
+            @frame footer_frame {
+                -pdf-frame-content: footer_content;
+                left: 50pt;
+                width: 512pt;
+                top: 772pt;
+                height: 20pt;
+            }
+        }
+
+        body {
+            font-family: Helvetica, sans-serif;
+            font-size: 10pt;
+            color: #333;
+        }
+
+        h1 {
+            font-size: 18pt;
+            color: #111827;
+            margin-bottom: 5pt;
+        }
+
+        h2 {
+            font-size: 12pt;
+            color: #6B7280;
+            font-weight: normal;
+            margin-top: 0;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20pt;
+        }
+
+        th {
+            background-color: #F3F4F6;
+            color: #111827;
+            padding: 8pt;
+            text-align: left;
+            font-size: 9pt;
+            font-weight: bold;
+            border-bottom: 2pt solid #E5E7EB;
+        }
+
+        td {
+            padding: 8pt;
+            border-bottom: 1pt solid #E5E7EB;
+            font-size: 9pt;
+            vertical-align: middle;
+        }
+
+        .text-success {
+            color: #059669;
+            font-weight: bold;
+        }
+
+        .text-warning {
+            color: #D97706;
+            font-weight: bold;
+        }
+
+        .text-danger {
+            color: #DC2626;
+            font-weight: bold;
+        }
+
+        #header_content {
+            border-bottom: 1pt solid #ccc;
+            padding-bottom: 10pt;
+        }
+
+        #footer_content {
+            text-align: center;
+            color: #9CA3AF;
+            font-size: 8pt;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="header_content">
+        <h1>Reporte de Disponibilidad QAWAQ</h1>
+        <h2>Generado: {{ generated_at|date:"Y-m-d H:i" }} | Rango: {{ start_date|date:"Y-m-d" }} - {{
+            end_date|date:"Y-m-d" }}</h2>
+    </div>
+
+    <div id="footer_content">
+        Página <pdf:pagenumber> de <pdf:pagecount>
+    </div>
+
+    <table>
+        <thead>
+            <tr>
+                <th style="width: 20%;">ID Equipo</th>
+                <th style="width: 20%;">IP</th>
+                <th style="width: 15%;">Marca</th>
+                <th style="width: 15%;">Tipo</th>
+                <th style="width: 15%;">Disponibilidad</th>
+                <th style="width: 15%;">Eventos Fallidos</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for eq in equipos %}
+            <tr>
+                <td>{{ eq.id_equipo }}</td>
+                <td>{{ eq.ip }}</td>
+                <td>{{ eq.marca }}</td>
+                <td>{{ eq.tipo }}</td>
+                <td>
+                    <span
+                        class="{% if eq.availability >= 95 %}text-success{% elif eq.availability >= 75 %}text-warning{% else %}text-danger{% endif %}">
+                        {{ eq.availability }}%
+                    </span>
+                </td>
+                <td>{{ eq.downtime_count }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</body>
+
+</html>

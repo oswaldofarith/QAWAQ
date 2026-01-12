@@ -1,0 +1,99 @@
+{% extends 'base.html' %}
+
+{% block header_title %}Configuración del Sistema{% endblock %}
+{% block header_subtitle %}Parámetros globales de monitoreo{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-lg-8 mx-auto">
+        <div class="card-dashboard p-4">
+            <h5 class="text-white mb-4">
+                <i class="bi bi-gear-fill me-2"></i>Configuración Global
+            </h5>
+
+            <form method="post">
+                {% csrf_token %}
+
+                <div class="row g-3">
+                    <!-- Tiempo Interrogación -->
+                    <div class="col-md-6">
+                        <label for="id_tiempo_interrogacion" class="form-label text-white">
+                            {{ form.tiempo_interrogacion.label }}
+                        </label>
+                        {{ form.tiempo_interrogacion }}
+                        <small class="text-secondary d-block mt-1">Intervalo entre pings automáticos</small>
+                        {% if form.tiempo_interrogacion.errors %}
+                        <div class="text-danger small mt-1">{{ form.tiempo_interrogacion.errors }}</div>
+                        {% endif %}
+                    </div>
+
+                    <!-- Reintentos -->
+                    <div class="col-md-6">
+                        <label for="id_reintentos" class="form-label text-white">
+                            {{ form.reintentos.label }}
+                        </label>
+                        {{ form.reintentos }}
+                        <small class="text-secondary d-block mt-1">Intentos antes de marcar offline</small>
+                        {% if form.reintentos.errors %}
+                        <div class="text-danger small mt-1">{{ form.reintentos.errors }}</div>
+                        {% endif %}
+                    </div>
+
+                    <!-- Umbral Fibra -->
+                    <div class="col-md-6">
+                        <label for="id_umbral_falla_fibra" class="form-label text-white">
+                            {{ form.umbral_falla_fibra.label }}
+                        </label>
+                        {{ form.umbral_falla_fibra }}
+                        <small class="text-secondary d-block mt-1">Timeout para equipos de fibra óptica</small>
+                        {% if form.umbral_falla_fibra.errors %}
+                        <div class="text-danger small mt-1">{{ form.umbral_falla_fiber.errors }}</div>
+                        {% endif %}
+                    </div>
+
+                    <!-- Umbral Celular -->
+                    <div class="col-md-6">
+                        <label for="id_umbral_falla_celular" class="form-label text-white">
+                            {{ form.umbral_falla_celular.label }}
+                        </label>
+                        {{ form.umbral_falla_celular }}
+                        <small class="text-secondary d-block mt-1">Timeout para equipos celulares (4G/5G)</small>
+                        {% if form.umbral_falla_celular.errors %}
+                        <div class="text-danger small mt-1">{{ form.umbral_falla_celular.errors }}</div>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <div class="mt-4">
+                    <button type="submit" class="btn btn-primary">
+                        <i class="bi bi-check-lg me-2"></i>Guardar Configuración
+                    </button>
+                </div>
+            </form>
+        </div>
+
+        <!-- Current Values Info -->
+        <div class="card-dashboard p-4 mt-4">
+            <h6 class="text-white mb-3">Valores Actuales</h6>
+            <div class="row g-3">
+                <div class="col-md-6">
+                    <small class="text-secondary">Intervalo de Ping:</small>
+                    <div class="text-white">{{ config.tiempo_interrogacion }} segundos</div>
+                </div>
+                <div class="col-md-6">
+                    <small class="text-secondary">Reintentos:</small>
+                    <div class="text-white">{{ config.reintentos }}</div>
+                </div>
+                <div class="col-md-6">
+                    <small class="text-secondary">Umbral Fibra:</small>
+                    <div class="text-white">{{ config.umbral_falla_fibra }} segundos</div>
+                </div>
+                <div class="col-md-6">
+                    <small class="text-secondary">Umbral Celular:</small>
+                    <div class="text-white">{{ config.umbral_falla_celular }} segundos</div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

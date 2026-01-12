@@ -1,0 +1,141 @@
+{% extends 'base.html' %}
+
+{% block header_title %}{{ title }}{% endblock %}
+{% block header_subtitle %}{% if is_create %}Crear nuevo usuario del sistema{% else %}Editar información del usuario{% endif %}{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-lg-8 mx-auto">
+        <div class="card-dashboard p-4">
+            <form method="post" enctype="multipart/form-data" id="userForm">
+                {% csrf_token %}
+
+                <!-- Avatar Upload -->
+                <div class="text-center mb-4">
+                    <div class="mb-3">
+                        {% if not is_create and usuario.profile.avatar %}
+                        <img src="{{ usuario.profile.avatar.url }}" id="avatarPreview" class="rounded-circle"
+                            style="width: 100px; height: 100px; object-fit: cover;">
+                        {% else %}
+                        <div id="avatarPreview"
+                            class="rounded-circle bg-secondary d-inline-flex align-items-center justify-content-center"
+                            style="width: 100px; height: 100px;">
+                            <i class="bi bi-person text-white" style="font-size: 3rem;"></i>
+                        </div>
+                        {% endif %}
+                    </div>
+
+                    <div class="mb-3">
+                        {{ form.avatar }}
+                        <label for="id_avatar" class="btn btn-outline-primary btn-sm">
+                            <i class="bi bi-upload me-2"></i>Subir Avatar
+                        </label>
+                        {% if form.avatar.errors %}
+                        <div class="text-danger small mt-1">{{ form.avatar.errors }}</div>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <hr class="border-secondary mb-4">
+
+                <!-- User Fields -->
+                <div class="row g-3 mb-3">
+                    <div class="col-md-6">
+                        <label for="id_username" class="form-label text-white">{{ form.username.label }}</label>
+                        {{ form.username }}
+                        {% if form.username.errors %}
+                        <div class="text-danger small">{{ form.username.errors }}</div>
+                        {% endif %}
+                    </div>
+
+                    <div class="col-md-6">
+                        <label for="id_email" class="form-label text-white">{{ form.email.label }}</label>
+                        {{ form.email }}
+                        {% if form.email.errors %}
+                        <div class="text-danger small">{{ form.email.errors }}</div>
+                        {% endif %}
+                    </div>
+
+                    <div class="col-md-6">
+                        <label for="id_first_name" class="form-label text-white">{{ form.first_name.label }}</label>
+                        {{ form.first_name }}
+                        {% if form.first_name.errors %}
+                        <div class="text-danger small">{{ form.first_name.errors }}</div>
+                        {% endif %}
+                    </div>
+
+                    <div class="col-md-6">
+                        <label for="id_last_name" class="form-label text-white">{{ form.last_name.label }}</label>
+                        {{ form.last_name }}
+                        {% if form.last_name.errors %}
+                        <div class="text-danger small">{{ form.last_name.errors }}</div>
+                        {% endif %}
+                    </div>
+
+                    <div class="col-md-6">
+                        <label for="id_role" class="form-label text-white">{{ form.role.label }}</label>
+                        {{ form.role }}
+                        {% if form.role.errors %}
+                        <div class="text-danger small">{{ form.role.errors }}</div>
+                        {% endif %}
+                    </div>
+
+                    <div class="col-md-6">
+                        <label for="id_password" class="form-label text-white">{{ form.password.label }}</label>
+                        {{ form.password }}
+                        <small class="text-secondary d-block">{{ form.password.help_text }}</small>
+                        {% if form.password.errors %}
+                        <div class="text-danger small">{{ form.password.errors }}</div>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <!-- Actions -->
+                <div class="d-flex gap-2 mt-4">
+                    <button type="submit" class="btn btn-primary">
+                        <i class="bi bi-check-lg me-2"></i>
+                        {% if is_create %}Crear Usuario{% else %}Guardar Cambios{% endif %}
+                    </button>
+                    <a href="{% if is_create %}{% url 'usuario_list' %}{% else %}{% url 'usuario_detail' usuario.pk %}{% endif %}"
+                        class="btn btn-outline-secondary">
+                        <i class="bi bi-x-lg me-2"></i>Cancelar
+                    </a>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        const avatarInput = document.getElementById('id_avatar');
+        const avatarPreview = document.getElementById('avatarPreview');
+
+        avatarInput.addEventListener('change', function (e) {
+            if (e.target.files && e.target.files[0]) {
+                const reader = new FileReader();
+                reader.onload = function (event) {
+                    if (avatarPreview.tagName === 'IMG') {
+                        avatarPreview.src = event.target.result;
+                    } else {
+                        const img = document.createElement('img');
+                        img.src = event.target.result;
+                        img.className = 'rounded-circle';
+                        img.style.cssText = 'width: 100px; height: 100px; object-fit: cover;';
+                        avatarPreview.replaceWith(img);
+                        avatarPreview.id = 'avatarPreview';
+                    }
+                };
+                reader.readAsDataURL(e.target.files[0]);
+            }
+        });
+    });
+</script>
+
+<style>
+    #id_avatar {
+        display: none;
+    }
+</style>
+
+{% endblock %}

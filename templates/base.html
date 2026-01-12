@@ -1,0 +1,301 @@
+{% load static %}
+{% load django_htmx %}
+<!DOCTYPE html>
+<html lang="es" data-bs-theme="dark">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>QAWAQ - Network Monitor</title>
+    <!-- Bootstrap 5 CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Bootstrap Icons -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="{% static 'css/style.css' %}">
+
+    <!-- HTMX -->
+    <script src="https://unpkg.com/htmx.org@1.9.6"></script>
+    {% django_htmx_script %}
+
+    <!-- Alpine.js -->
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+
+    <!-- Leaflet JS -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+    <!-- ApexCharts -->
+    <script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
+    <!-- Theme Init -->
+    <script>
+        const savedTheme = localStorage.getItem('theme') || 'dark';
+        document.documentElement.setAttribute('data-bs-theme', savedTheme);
+    </script>
+</head>
+
+<body>
+    <div class="container-fluid">
+        <div class="row">
+            <!-- Sidebar -->
+            <nav id="sidebarMenu" class="col-md-3 col-lg-2 d-md-block sidebar collapse">
+                <div class="position-sticky pt-3 d-flex flex-column h-100">
+                    <div class="px-3 mb-4">
+                        <h5 class="text-white fw-bold mb-0">
+                            <i class="bi bi-diagram-3-fill text-primary me-2"></i>QAWAK
+                        </h5>
+                        <small class="text-muted ms-4">NETWORK MONITOR</small>
+                    </div>
+
+                    <ul class="nav flex-column">
+                        <li class="nav-item">
+                            <a class="nav-link {% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}"
+                                href="{% url 'dashboard' %}">
+                                <i class="bi bi-grid-1x2-fill"></i> Dashboard
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link {% if 'equipo' in request.resolver_match.url_name %}active{% endif %}"
+                                href="{% url 'equipo_list' %}">
+                                <i class="bi bi-router-fill"></i> Equipos
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="{% url 'reportes' %}">
+                                <i class="bi bi-bar-chart-fill"></i> Reportes
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link {% if 'calendario' in request.resolver_match.url_name or 'evento' in request.resolver_match.url_name %}active{% endif %}"
+                                href="{% url 'calendario' %}">
+                                <i class="bi bi-calendar-event-fill"></i> Calendario
+                            </a>
+                        </li>
+                        {% if user.profile.role == 'admin' %}
+                        <li class="nav-item">
+                            <a class="nav-link {% if 'usuario' in request.resolver_match.url_name %}active{% endif %}"
+                                href="{% url 'usuario_list' %}">
+                                <i class="bi bi-people-fill"></i> Usuarios
+                            </a>
+                        </li>
+                        <li class="nav-item dropdown">
+                            <a class="nav-link dropdown-toggle {% if 'configuracion' in request.resolver_match.url_name or 'marca' in request.resolver_match.url_name or 'tipo' in request.resolver_match.url_name %}active{% endif %}"
+                                href="#" id="navbarDropdown" role="button" data-bs-toggle="dropdown"
+                                aria-expanded="false">
+                                <i class="bi bi-gear-fill"></i> Configuración
+                            </a>
+                            <ul class="dropdown-menu" aria-labelledby="navbarDropdown">
+                                <li><a class="dropdown-item" href="{% url 'configuracion' %}">
+                                        <i class="bi bi-sliders me-2"></i>Sistema
+                                    </a></li>
+                                <li>
+                                    <hr class="dropdown-divider">
+                                </li>
+                                <li><a class="dropdown-item" href="{% url 'marca_list' %}">
+                                        <i class="bi bi-tag me-2"></i>Marcas
+                                    </a></li>
+                                <li><a class="dropdown-item" href="{% url 'tipo_list' %}">
+                                        <i class="bi bi-diagram-3 me-2"></i>Tipos de Equipo
+                                    </a></li>
+                                <li><a class="dropdown-item" href="{% url 'porcion_list' %}">
+                                        <i class="bi bi-collection me-2"></i>Porciones
+                                    </a></li>
+                            </ul>
+                        </li>
+                        {% endif %}
+                    </ul>
+
+                    <div class="mt-auto p-3 border-top border-secondary">
+                        <div class="dropdown">
+                            <a href="#" class="d-flex align-items-center text-decoration-none dropdown-toggle" 
+                               id="userDropdown" data-bs-toggle="dropdown" aria-expanded="false">
+                                {% if user.profile.avatar %}
+                                <img src="{{ user.profile.avatar.url }}" alt="{{ user.username }}"
+                                    class="rounded-circle me-2" style="width: 40px; height: 40px; object-fit: cover;">
+                                {% else %}
+                                <div class="rounded-circle bg-primary text-white d-flex align-items-center justify-content-center me-2"
+                                    style="width: 40px; height: 40px;">
+                                    {{ user.username|slice:":2"|upper }}
+                                </div>
+                                {% endif %}
+                                <div class="flex-grow-1">
+                                    <div class="text-white small fw-bold">{{ user.profile.get_full_name|default:user.username }}</div>
+                                    <div class="text-muted small" style="font-size: 0.75rem;">
+                                        {% if user.profile.role == 'admin' %}
+                                        <i class="bi bi-shield-check me-1"></i>Administrador
+                                        {% else %}
+                                        <i class="bi bi-person me-1"></i>Operador
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            </a>
+                            <ul class="dropdown-menu dropdown-menu-end w-100" aria-labelledby="userDropdown">
+                                <li>
+                                    <a href="{% url 'my_profile' %}" class="dropdown-item">
+                                        <i class="bi bi-person-circle me-2"></i>Mi Perfil
+                                    </a>
+                                </li>
+                                <li>
+                                    <a href="{% url 'change_password' %}" class="dropdown-item">
+                                        <i class="bi bi-key me-2"></i>Cambiar Contraseña
+                                    </a>
+                                </li>
+                                <li><hr class="dropdown-divider"></li>
+                                <li>
+                                    <form method="post" action="{% url 'logout' %}" class="px-3 py-1">
+                                        {% csrf_token %}
+                                        <button type="submit" class="btn btn-outline-danger btn-sm w-100">
+                                            <i class="bi bi-box-arrow-right me-1"></i>Cerrar Sesión
+                                        </button>
+                                    </form>
+                                </li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </nav>
+
+            <!-- Page Content -->
+            <main class="col-md-9 ms-sm-auto col-lg-10 px-md-4">
+                <!-- Header -->
+                <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-4">
+                    <div>
+                        <h1 class="h2 text-white fw-bold mb-1">{% block header_title %}Dashboard Overview{% endblock %}
+                        </h1>
+                        <span class="text-secondary">{% block header_subtitle %}Real-time TCP/IP monitoring statistics{% endblock %}</span>
+                    </div>
+
+                    <div class="btn-toolbar mb-2 mb-md-0 d-flex gap-3">
+                        <form action="{% url 'equipo_list' %}" method="get" class="input-group" role="search">
+                            <span class="input-group-text bg-dark border-secondary text-secondary"><i
+                                    class="bi bi-search"></i></span>
+                            <input type="text" name="q" class="form-control bg-dark border-secondary text-white"
+                                placeholder="Buscar ID o IP..." style="min-width: 250px;" value="{{ request.GET.q }}"
+                                hx-get="{% url 'global_search' %}" hx-trigger="keyup changed delay:500ms, search"
+                                hx-target="#search-results" hx-indicator="#search-loading" autocomplete="off">
+                            <div id="search-results" class="position-absolute w-100 start-0"
+                                style="top: 100%; z-index: 1000;"></div>
+                        </form>
+
+                        <!-- Theme Toggle -->
+                        <button type="button" class="btn btn-dark border-secondary text-secondary" id="themeToggle"
+                            title="Cambiar tema">
+                            <i class="bi bi-moon-fill" id="themeIcon"></i>
+                        </button>
+
+
+                        <button type="button" class="btn btn-primary d-flex align-items-center gap-2"
+                            onclick="window.location.reload()">
+                            <i class="bi bi-arrow-clockwise"></i> Refrescar
+                        </button>
+                    </div>
+                </div>
+
+                {% block content %}
+                {% endblock %}
+            </main>
+        </div>
+    </div>
+
+    <!-- Modal Container -->
+    <div id="modal-container"></div>
+
+    <!-- Toast Container -->
+    <div class="toast-container position-fixed bottom-0 end-0 p-3" id="toastContainer"></div>
+
+    <!-- Bootstrap JS Bundle -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        document.body.addEventListener('htmx:configRequest', (event) => {
+            event.detail.headers['X-CSRFToken'] = '{{ csrf_token }}';
+        });
+
+        // Handle Toast Events from HTMX
+        document.body.addEventListener('showMessage', (evt) => {
+            const data = evt.detail;
+            const level = data.level || 'info'; // success, error, info
+            const message = data.message;
+
+            const toastContainer = document.getElementById('toastContainer');
+            const toastEl = document.createElement('div');
+
+            let bgClass = 'text-bg-primary';
+            if (level === 'success') bgClass = 'text-bg-success';
+            if (level === 'error') bgClass = 'text-bg-danger';
+            if (level === 'warning') bgClass = 'text-bg-warning';
+
+            toastEl.className = `toast align-items-center ${bgClass} border-0`;
+            toastEl.setAttribute('role', 'alert');
+            toastEl.setAttribute('aria-live', 'assertive');
+            toastEl.setAttribute('aria-atomic', 'true');
+
+            toastEl.innerHTML = `
+                <div class="d-flex">
+                    <div class="toast-body">
+                        ${message}
+                    </div>
+                    <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
+                </div>
+            `;
+
+            toastContainer.appendChild(toastEl);
+            const toast = new bootstrap.Toast(toastEl);
+            toast.show();
+
+            // Remove after hidden
+            toastEl.addEventListener('hidden.bs.toast', () => {
+                toastEl.remove();
+            });
+        });
+
+        // Theme Toggle Logic
+        document.addEventListener('DOMContentLoaded', () => {
+            const toggleBtn = document.getElementById('themeToggle');
+            const icon = document.getElementById('themeIcon');
+            const html = document.documentElement;
+
+            // Set initial icon
+            const currentTheme = html.getAttribute('data-bs-theme');
+            updateIcon(currentTheme);
+
+            toggleBtn.addEventListener('click', () => {
+                const newTheme = html.getAttribute('data-bs-theme') === 'dark' ? 'light' : 'dark';
+                html.setAttribute('data-bs-theme', newTheme);
+                localStorage.setItem('theme', newTheme);
+                updateIcon(newTheme);
+            });
+
+            function updateIcon(theme) {
+                if (theme === 'dark') {
+                    icon.classList.replace('bi-sun-fill', 'bi-moon-fill');
+                    toggleBtn.classList.replace('text-warning', 'text-secondary');
+                } else {
+                    icon.classList.replace('bi-moon-fill', 'bi-sun-fill');
+                    toggleBtn.classList.replace('text-secondary', 'text-warning');
+                }
+            }
+        });
+
+        // Auto-show Modal when HTMX content is swapped into #modal-container
+        const modalContainer = document.getElementById('modal-container');
+        modalContainer.addEventListener('htmx:afterSwap', (evt) => {
+            // Only if the swap target was the modal container itself
+            if (evt.detail.target.id === 'modal-container') {
+                const modalEl = modalContainer.querySelector('.modal');
+                if (modalEl) {
+                    const modal = new bootstrap.Modal(modalEl);
+                    modal.show();
+
+                    // Cleanup on close
+                    modalEl.addEventListener('hidden.bs.modal', () => {
+                        modal.dispose();
+                        modalContainer.innerHTML = ''; // Clear content
+                    });
+                }
+            }
+        });
+    </script>
+</body>
+
+</html>

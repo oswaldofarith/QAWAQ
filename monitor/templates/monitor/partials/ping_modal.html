@@ -1,0 +1,31 @@
+<div class="modal fade" tabindex="-1">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content bg-dark border-secondary">
+            <div class="modal-header border-secondary">
+                <h5 class="modal-title font-monospace text-white">
+                    <i class="bi bi-terminal-fill me-2 text-success"></i>Ping a {{ equipo.ip }} ({{ equipo.id_equipo }})
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"
+                    aria-label="Close"></button>
+            </div>
+            <div class="modal-body p-0">
+                <!-- Terminal-like container -->
+                <div id="ping-terminal" class="bg-black text-success font-monospace p-3 overflow-auto"
+                    style="height: 400px; font-size: 0.9rem;">
+                    <div class="mb-2 text-white-50">Iniciando secuencia de ping a {{ equipo.ip }}...</div>
+                    <div class="mb-2 text-white-50">Presione Esc o cierre esta ventana para detener.</div>
+                    <hr class="border-secondary opacity-50 mb-2">
+
+                    <!-- The polling container. Appends new lines here. -->
+                    <div hx-get="{% url 'ping_tool' equipo.id %}" hx-trigger="load, every 1s"
+                        hx-swap="beforeend scroll:bottom">
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer border-secondary p-2">
+                <button type="button" class="btn btn-sm btn-outline-secondary text-white"
+                    data-bs-dismiss="modal">Cerrar</button>
+            </div>
+        </div>
+    </div>
+</div>

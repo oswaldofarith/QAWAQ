@@ -1,0 +1,274 @@
+{% extends 'base.html' %}
+{% load monitor_extras %}
+
+{% block header_title %}Reportes de Disponibilidad{% endblock %}
+{% block header_subtitle %}Supervisión del tiempo de actividad global e individual de la red.{% endblock %}
+
+{% block content %}
+<!-- Top Controls -->
+<div class="row mb-4">
+    <div class="col-12 d-flex justify-content-between align-items-center">
+        <!-- Tabs -->
+        <ul class="nav nav-tabs border-bottom-0">
+            <li class="nav-item">
+                <a class="nav-link text-secondary bg-transparent border-0" href="{% url 'reportes' %}">Reporte
+                    Global</a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link active bg-transparent text-primary border-primary border-top-0 border-end-0 border-start-0 border-bottom-2 fw-bold"
+                    href="#" style="border-bottom-width: 2px !important;">Reporte Individual</a>
+            </li>
+        </ul>
+
+        <!-- Date Range (Linked to Form) -->
+        <div class="d-flex gap-2 align-items-center">
+            <span class="text-secondary small">Rango:</span>
+            <input type="date" name="start_date" form="individualForm"
+                class="form-control form-control-sm bg-dark border-secondary text-white" value="{{ start_date }}"
+                style="max-width: 130px;">
+            <span class="text-secondary">-</span>
+            <input type="date" name="end_date" form="individualForm"
+                class="form-control form-control-sm bg-dark border-secondary text-white" value="{{ end_date }}"
+                style="max-width: 130px;">
+
+            <button class="btn btn-outline-secondary d-flex align-items-center gap-2" form="individualForm">
+                <i class="bi bi-arrow-clockwise"></i> Actualizar
+            </button>
+
+            {% if selected_equipo %}
+            <a href="{% url 'export_individual_report' %}?equipo_code={{ selected_equipo.id_equipo }}&start_date={{ start_date }}&end_date={{ end_date }}"
+                class="btn btn-outline-danger d-flex align-items-center gap-2" target="_blank">
+                <i class="bi bi-file-earmark-pdf"></i> Exportar PDF
+            </a>
+            {% endif %}
+        </div>
+    </div>
+    <div class="col-12">
+        <hr class="mt-0 border-secondary border-opacity-25">
+    </div>
+</div>
+
+<!-- Selection Panel -->
+<div class="card-dashboard p-4 mb-4">
+    <form method="get" class="row g-3 align-items-center" id="individualForm">
+        <!-- Search/Select Device -->
+        <div class="col-md-6">
+            <label class="text-secondary small text-uppercase fw-bold mb-1">SELECCIONAR EQUIPO</label>
+            <div class="input-group">
+                <span class="input-group-text bg-dark border-secondary text-secondary"><i
+                        class="bi bi-search"></i></span>
+                <input type="text" list="equiposList" name="equipo_code"
+                    class="form-control bg-dark border-secondary text-white" placeholder="Buscar por ID..."
+                    value="{{ selected_equipo.id_equipo|default:'' }}" required autocomplete="off">
+                <datalist id="equiposList">
+                    {% for eq in equipos_search %}
+                    <option value="{{ eq.id_equipo }}">{{ eq.id_equipo }} - {{ eq.marca__nombre }} - {{ eq.ip }}</option>
+                    {% endfor %}
+                </datalist>
+            </div>
+            <div class="form-text text-secondary small">Ingrese o seleccione el ID del equipo.</div>
+        </div>
+        <div class="col-md-auto ms-auto">
+            <button type="submit" class="btn btn-primary px-4" id="generateReportBtn">
+                <span class="btn-text">Generar Reporte</span>
+                <span class="spinner-border spinner-border-sm ms-2 d-none" role="status" aria-hidden="true"></span>
+            </button>
+        </div>
+    </form>
+</div>
+
+{% if selected_equipo %}
+<!-- Report Content -->
+<div class="row g-4 mb-4">
+    <!-- Device Details Card -->
+    <div class="col-md-4">
+        <div class="card-dashboard p-4 h-100">
+            <h5 class="text-white mb-3">Detalle del Equipo</h5>
+            <div class="d-flex flex-column gap-2 text-secondary">
+                <div class="d-flex justify-content-between">
+                    <span>ID:</span>
+                    <span class="text-white font-monospace">{{ selected_equipo.id_equipo }}</span>
+                </div>
+                <div class="d-flex justify-content-between">
+                    <span>IP:</span>
+                    <span class="text-white font-monospace">{{ selected_equipo.ip }}</span>
+                </div>
+                <div class="d-flex justify-content-between">
+                    <span>Ubicación:</span>
+                    <span class="text-white text-end">{{ selected_equipo.latitud }},<br>{{ selected_equipo.longitud }}</span>
+                </div>
+                <div class="d-flex justify-content-between">
+                    <span>Marca:</span>
+                    <span class="text-white">{{ selected_equipo.marca.nombre }}</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Big Availability Stat -->
+    <div class="col-md-4">
+        <div class="card-dashboard p-4 h-100 d-flex flex-column justify-content-center align-items-center text-center">
+            <h5 class="text-secondary text-uppercase small fw-bold mb-2">TASA DE DISPONIBILIDAD</h5>
+            <div
+                class="display-1 fw-bold {% if availability >= 95 %}text-success{% elif availability >= 75 %}text-warning{% else %}text-danger{% endif %}">
+                {{ availability }}%
+            </div>
+            <div class="text-secondary small mt-2">
+                En el rango seleccionado
+            </div>
+        </div>
+    </div>
+
+    <!-- Downtime Stat -->
+    <div class="col-md-4">
+        <div class="card-dashboard p-4 h-100 d-flex flex-column justify-content-center align-items-center text-center">
+            <h5 class="text-secondary text-uppercase small fw-bold mb-2">TIEMPO DE INACTIVIDAD</h5>
+            <div class="display-4 fw-bold text-white my-auto">
+                {{ downtime_count }} <span class="fs-5 text-secondary">eventos</span>
+            </div>
+            <div class="text-secondary small mt-2">
+                Total de chequeos fallidos
+            </div>
+        </div>
+    </div>
+
+    <!-- Chart -->
+    <div class="col-12">
+        <div class="card-dashboard p-4">
+            <h5 class="text-white mb-4">Gráfico de Disponibilidad</h5>
+            <div id="availabilityChart" style="height: 300px;"></div>
+        </div>
+    </div>
+
+    <!-- Downtime Logs -->
+    <div class="col-12">
+        <div class="card-dashboard p-0 overflow-hidden">
+            <div class="p-3 border-bottom border-secondary border-opacity-25">
+                <h5 class="text-white mb-0">Incidentes de Indisponibilidad</h5>
+            </div>
+            <div class="table-responsive" style="max-height: 400px; overflow-y: auto;">
+                <table class="table table-custom table-hover mb-0">
+                    <thead class="sticky-top bg-dark">
+                        <tr>
+                            <th class="ps-4">INICIO</th>
+                            <th>FIN</th>
+                            <th>DURACIÓN</th>
+                            <th>ESTADO</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for log in downtime_logs %}
+                        <tr>
+                            <td class="ps-4 text-white font-monospace">{{ log.start|date:"Y-m-d H:i:s" }}</td>
+                            <td class="text-white font-monospace">{{ log.end|date:"Y-m-d H:i:s" }}</td>
+                            <td class="text-warning">{{ log.duration_str }}</td>
+                            <td><span
+                                    class="badge bg-danger bg-opacity-25 text-danger border border-danger">OFFLINE</span>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="4" class="text-center py-5 text-secondary">
+                                <i class="bi bi-check-circle fs-1 text-success d-block mb-2"></i>
+                                No se registraron incidentes en este periodo.
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Chart Script -->
+{{ chart_labels|json_script:"chart-labels" }}
+{{ chart_values|json_script:"chart-values" }}
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        var chartLabels = JSON.parse(document.getElementById('chart-labels').textContent);
+        var chartValues = JSON.parse(document.getElementById('chart-values').textContent);
+
+        if (chartValues.length > 0) {
+            var options = {
+                series: [{ name: 'Estado', data: chartValues }],
+                chart: {
+                    type: 'area', height: 300,
+                    toolbar: { show: false },
+                    fontFamily: 'Inter, sans-serif',
+                    background: 'transparent',
+                    animations: { enabled: true }
+                },
+                colors: ['#22c55e'],
+                fill: {
+                    type: 'gradient',
+                    gradient: {
+                        shadeIntensity: 1, opacityFrom: 0.4, opacityTo: 0.05, stops: [0, 90, 100]
+                    }
+                },
+                dataLabels: { enabled: false },
+                stroke: { curve: 'stepline', width: 2 },
+                xaxis: {
+                    type: 'category',
+                    categories: chartLabels,
+                    tickAmount: 10,
+                    labels: {
+                        style: { colors: '#8e95a3' }
+                    },
+                    axisBorder: { show: false },
+                    axisTicks: { show: false }
+                },
+                yaxis: {
+                    tickAmount: 1, min: 0, max: 1,
+                    labels: {
+                        style: { colors: '#8e95a3' },
+                        formatter: function (val) { return val === 1 ? 'Online' : 'Offline'; }
+                    }
+                },
+                grid: {
+                    borderColor: '#374151', strokeDashArray: 4,
+                    yaxis: { lines: { show: true } }
+                },
+                theme: { mode: 'dark' },
+                tooltip: {
+                    theme: 'dark',
+                    y: { formatter: function (val) { return val === 1 ? 'Online' : 'Offline'; } }
+                }
+            };
+            var chart = new ApexCharts(document.querySelector("#availabilityChart"), options);
+            chart.render();
+        } else {
+            document.querySelector("#availabilityChart").innerHTML =
+                '<div class="h-100 d-flex align-items-center justify-content-center text-muted">No hay datos para mostrar</div>';
+        }
+    });
+</script>
+
+<script>
+// Show loading spinner on report generation
+document.addEventListener('DOMContentLoaded', function () {
+    const form = document.getElementById('individualForm');
+    const btn = document.getElementById('generateReportBtn');
+    
+    if (form && btn) {
+        form.addEventListener('submit', function() {
+            btn.disabled = true;
+            btn.querySelector('.spinner-border').classList.remove('d-none');
+        });
+    }
+});
+</script>
+{% else %}
+<!-- Placeholder for when no device is selected -->
+<div class="row">
+    <div class="col-12 py-5 text-center">
+        <div class="text-secondary opacity-50 mb-3">
+            <i class="bi bi-search fs-1"></i>
+        </div>
+        <h5 class="text-white">Seleccione un equipo</h5>
+        <p class="text-secondary">Utilice el buscador de arriba para generar un reporte individual.</p>
+    </div>
+</div>
+{% endif %}
+
+{% endblock %}

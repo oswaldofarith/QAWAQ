@@ -1,0 +1,45 @@
+{% extends 'base.html' %}
+
+{% block header_title %}{{ title }}{% endblock %}
+{% block header_subtitle %}{% if is_create %}Agregar nueva marca de equipo{% else %}Modificar información de la marca{% endif %}{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-lg-6 mx-auto">
+        <div class="card-dashboard p-4">
+            <form method="post">
+                {% csrf_token %}
+
+                <div class="mb-3">
+                    <label for="id_nombre" class="form-label text-white">{{ form.nombre.label }}</label>
+                    {{ form.nombre }}
+                    {% if form.nombre.errors %}
+                    <div class="text-danger small mt-1">{{ form.nombre.errors }}</div>
+                    {% endif %}
+                </div>
+
+                <div class="mb-3">
+                    <label for="id_color" class="form-label text-white">{{ form.color.label }}</label>
+                    <div class="d-flex align-items-center gap-3">
+                        {{ form.color }}
+                        <span class="text-secondary">Selecciona un color identificador</span>
+                    </div>
+                    {% if form.color.errors %}
+                    <div class="text-danger small mt-1">{{ form.color.errors }}</div>
+                    {% endif %}
+                </div>
+
+                <div class="d-flex gap-2 mt-4">
+                    <button type="submit" class="btn btn-primary">
+                        <i class="bi bi-check-lg me-2"></i>
+                        {% if is_create %}Crear Marca{% else %}Guardar Cambios{% endif %}
+                    </button>
+                    <a href="{% url 'marca_list' %}" class="btn btn-outline-secondary">
+                        <i class="bi bi-x-lg me-2"></i>Cancelar
+                    </a>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

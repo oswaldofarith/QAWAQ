@@ -1,0 +1,213 @@
+{% extends 'base.html' %}
+
+{% block header_title %}Resumen General{% endblock %}
+{% block header_subtitle %}Estadísticas de medición inteligente en tiempo real{% endblock %}
+
+{% block content %}
+<!-- Billing Events Alert -->
+{% if eventos_hoy or eventos_manana %}
+<div class="alert alert-info alert-dismissible fade show mb-4" role="alert">
+    <div class="d-flex align-items-start">
+        <i class="bi bi-calendar-check fs-4 me-3"></i>
+        <div class="flex-grow-1">
+            {% if eventos_hoy %}
+            <p class="mb-2">
+                <strong>Hoy se factura{% if eventos_hoy|length > 1 %}n{% endif %}:</strong>
+                {% for evento in eventos_hoy %}
+                    {{ evento.porcion.nombre }}{% if not forloop.last %}{% if forloop.revcounter == 2 %} y {% else %}, {% endif %}{% endif %}
+                {% endfor %}
+            </p>
+            {% endif %}
+            
+            {% if eventos_manana %}
+            <p class="mb-0">
+                <strong>Mañana se factura{% if eventos_manana|length > 1 %}n{% endif %}:</strong>
+                {% for evento in eventos_manana %}
+                    {{ evento.porcion.nombre }}{% if not forloop.last %}{% if forloop.revcounter == 2 %} y {% else %}, {% endif %}{% endif %}
+                {% endfor %}
+            </p>
+            {% endif %}
+        </div>
+    </div>
+    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+</div>
+{% endif %}
+
+<!-- Tarjetas de Estadísticas de Marca -->
+<div class="row g-4 mb-4">
+    {% for brand in brand_stats %}
+    <div class="col-md-6 col-lg-3">
+        <div class="card-dashboard p-4 h-100">
+            <div class="d-flex justify-content-between align-items-start mb-2">
+                <span class="card-title" style="color: {{ brand.marca__color|default:'#6B7280' }}">{{ brand.marca__nombre|upper }}</span>
+                <i class="bi bi-router text-secondary fs-4"></i>
+            </div>
+
+            <div class="d-flex align-items-baseline gap-2 mb-3">
+                <span class="metric-value">{{ brand.down }}</span>
+                <span class="badge bg-danger bg-opacity-10 text-danger px-2 py-1 rounded">Caídos</span>
+            </div>
+
+            <div class="mb-2">
+                <div class="d-flex justify-content-between text-muted small mb-1">
+                    <span>Total Monitoreados</span>
+                    <span>{{ brand.total }}</span>
+                </div>
+                <div class="progress progress-thin">
+                    <div class="progress-bar bg-danger" role="progressbar"
+                        style="width: {% widthratio brand.down brand.total 100 %}%" aria-valuenow="{{ brand.down }}"
+                        aria-valuemin="0" aria-valuemax="{{ brand.total }}">
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+
+<!-- Sección de Gráficos -->
+<div class="row g-4 mb-4">
+    <!-- Gráfico de Latencia -->
+    <div class="col-12">
+        <div class="card-dashboard p-4 h-100">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <div>
+                    <h5 class="text-white mb-0">Latencia de Red</h5>
+                    <small class="text-secondary">Tiempo de respuesta promedio (ms)</small>
+                </div>
+                <span class="badge bg-dark border border-secondary text-secondary px-3 py-2">Últimas 24 Horas</span>
+            </div>
+            <div id="mainLatencyChart" style="min-height: 300px;"></div>
+        </div>
+    </div>
+</div>
+
+<!-- Tabla de Dispositivos Sin Conexión -->
+<div class="card-dashboard mb-4">
+    <div
+        class="card-header border-bottom border-dark bg-transparent p-4 d-flex justify-content-between align-items-center">
+        <h5 class="text-white mb-0">Dispositivos Sin Comunicación</h5>
+        <a href="{% url 'equipo_list' %}?comunicacion=OFFLINE" class="btn btn-sm btn-link text-decoration-none">Ver
+            Todos</a>
+    </div>
+    <div class="table-responsive">
+        <table class="table table-custom mb-0">
+            <thead>
+                <tr>
+                    <th class="ps-4">ESTADO</th>
+                    <th>ID DISPOSITIVO</th>
+                    <th>MARCA</th>
+                    <th>DIRECCIÓN IP</th>
+                    <th>TIEMPO INACTIVO</th>
+                    <th class="text-end pe-4">ACCIÓN</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for dev in offline_list %}
+                <tr>
+                    <td class="ps-4">
+                        <div class="d-flex align-items-center text-danger">
+                            <span class="status-dot bg-danger"></span>
+                            Sin Conexión
+                        </div>
+                    </td>
+                    <td class="text-white fw-bold">{{ dev.id_equipo }}</td>
+                    <td>
+                        {{ dev.marca }}
+                    </td>
+                    <td class="font-monospace text-white">{{ dev.ip }}</td>
+                    <td>
+                        <span
+                            class="badge bg-danger bg-opacity-10 text-danger border border-danger border-opacity-25">{{ dev.downtime }}</span>
+                    </td>
+                    <td class="text-end pe-4">
+                        <a href="{% url 'equipo_detail' dev.id %}"
+                            class="btn btn-sm btn-outline-secondary border-0 text-white">
+                            <i class="bi bi-activity"></i>
+                        </a>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="6" class="text-center py-5">
+                        <div class="text-success mb-2"><i class="bi bi-check-circle-fill fs-3"></i></div>
+                        <div>Todos los sistemas operativos</div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+
+
+        //2. Gráfico Principal de Latencia (Datos Reales)
+        var latencyData = {{ latency_data| safe }};
+    var latencyLabels = {{ latency_labels| safe }};
+
+    var latencyOptions = {
+        series: [{
+            name: 'Latencia',
+            data: latencyData
+        }],
+        chart: {
+            height: 350,
+            type: 'area',
+            toolbar: { show: false },
+            fontFamily: 'Inter, sans-serif',
+            background: 'transparent',
+            animations: { enabled: true }
+        },
+        noData: {
+            text: 'Cargando datos...',
+            align: 'center',
+            verticalAlign: 'middle',
+            style: { color: '#8e95a3', fontSize: '16px' }
+        },
+        colors: ['#0ea5e9'],
+        fill: {
+            type: 'gradient',
+            gradient: {
+                shadeIntensity: 1,
+                opacityFrom: 0.4,
+                opacityTo: 0.05,
+                stops: [0, 90, 100]
+            }
+        },
+        dataLabels: { enabled: false },
+        stroke: {
+            curve: 'smooth',
+            width: 3
+        },
+        xaxis: {
+            type: 'category',
+            categories: latencyLabels,
+            labels: {
+                style: { colors: '#8e95a3' }
+            },
+            axisBorder: { show: false },
+            axisTicks: { show: false },
+            tooltip: { enabled: false }
+        },
+        yaxis: {
+            labels: { style: { colors: '#8e95a3' } }
+        },
+        grid: {
+            borderColor: '#374151',
+            strokeDashArray: 4,
+        },
+        theme: { mode: 'dark' },
+        tooltip: {
+            theme: 'dark'
+        }
+    };
+
+    var latencyChart = new ApexCharts(document.querySelector("#mainLatencyChart"), latencyOptions);
+    latencyChart.render();
+});
+</script>
+{% endblock %}

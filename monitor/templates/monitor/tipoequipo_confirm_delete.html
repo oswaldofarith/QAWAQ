@@ -1,0 +1,51 @@
+{% extends 'base.html' %}
+
+{% block header_title %}Eliminar Tipo de Equipo{% endblock %}
+{% block header_subtitle %}Confirmación de eliminación{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-lg-6 mx-auto">
+        <div class="card-dashboard p-4">
+            <div class="text-center mb-4">
+                <i class="bi bi-exclamation-triangle-fill text-warning" style="font-size: 4rem;"></i>
+            </div>
+
+            <h5 class="text-white text-center mb-3">¿Estás seguro?</h5>
+
+            {% if equipment_count > 0 %}
+            <div class="alert alert-danger">
+                <i class="bi bi-shield-x me-2"></i>
+                <strong>No se puede eliminar este tipo</strong>
+                <p class="mb-0 mt-2">
+                    El tipo <strong>{{ tipo.nombre }}</strong> tiene <strong>{{ equipment_count }}</strong> equipo(s)
+                    asignado(s).
+                    Debes reasignar o eliminar esos equipos primero.
+                </p>
+            </div>
+
+            <div class="text-center">
+                <a href="{% url 'tipo_list' %}" class="btn btn-secondary">
+                    <i class="bi bi-arrow-left me-2"></i>Volver a la Lista
+                </a>
+            </div>
+            {% else %}
+            <p class="text-secondary text-center mb-4">
+                Estás a punto de eliminar el tipo <strong class="text-white">{{ tipo.nombre }}</strong>.
+                <br>Esta acción no se puede deshacer.
+            </p>
+
+            <form method="post" class="text-center">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-danger me-2">
+                    <i class="bi bi-trash me-2"></i>Sí, Eliminar
+                </button>
+                <a href="{% url 'tipo_list' %}" class="btn btn-secondary">
+                    <i class="bi bi-x-lg me-2"></i>Cancelar
+                </a>
+            </form>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

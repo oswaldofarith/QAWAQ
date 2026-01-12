@@ -1,0 +1,91 @@
+{% extends 'base.html' %}
+
+{% block header_title %}{{ usuario.profile.get_full_name }}{% endblock %}
+{% block header_subtitle %}Perfil de Usuario • @{{ usuario.username }}{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-lg-8 mx-auto">
+        <!-- User Profile Card -->
+        <div class="card-dashboard p-5 mb-4">
+            <div class="text-center mb-4">
+                <!-- Avatar -->
+                {% if usuario.profile.avatar %}
+                <img src="{{ usuario.profile.avatar.url }}" alt="{{ usuario.username }}" class="rounded-circle mb-3"
+                    style="width: 120px; height: 120px; object-fit: cover;">
+                {% else %}
+                <div class="rounded-circle bg-secondary d-inline-flex align-items-center justify-content-center mb-3"
+                    style="width: 120px; height: 120px;">
+                    <span class="text-white fw-bold" style="font-size: 3rem;">{{ usuario.username|slice:":1"|upper }}</span>
+                </div>
+                {% endif %}
+
+                <h3 class="text-white mb-2">{{ usuario.profile.get_full_name }}</h3>
+                <p class="text-secondary mb-3">@{{ usuario.username }}</p>
+
+                {% if usuario.profile.role == 'admin' %}
+                <span class="badge bg-primary fs-6">Administrador</span>
+                {% else %}
+                <span class="badge bg-secondary fs-6">Operador</span>
+                {% endif %}
+            </div>
+
+            <hr class="border-secondary">
+
+            <!-- User Info -->
+            <div class="row g-4 mt-2">
+                <div class="col-md-6">
+                    <div class="mb-3">
+                        <small class="text-secondary d-block mb-1">Correo Electrónico</small>
+                        <p class="text-white mb-0">
+                            <i class="bi bi-envelope me-2"></i>{{ usuario.email|default:"-" }}
+                        </p>
+                    </div>
+                </div>
+
+                <div class="col-md-6">
+                    <div class="mb-3">
+                        <small class="text-secondary d-block mb-1">Nombre de Usuario</small>
+                        <p class="text-white mb-0">
+                            <i class="bi bi-person me-2"></i>{{ usuario.username }}
+                        </p>
+                    </div>
+                </div>
+
+                <div class="col-md-6">
+                    <div class="mb-3">
+                        <small class="text-secondary d-block mb-1">Fecha de Registro</small>
+                        <p class="text-white mb-0">
+                            <i class="bi bi-calendar me-2"></i>{{ usuario.date_joined|date:"d/m/Y" }}
+                        </p>
+                    </div>
+                </div>
+
+                <div class="col-md-6">
+                    <div class="mb-3">
+                        <small class="text-secondary d-block mb-1">Último Acceso</small>
+                        <p class="text-white mb-0">
+                            <i class="bi bi-clock me-2"></i>
+                            {% if usuario.last_login %}
+                            {{ usuario.last_login|date:"d/m/Y H:i" }}
+                            {% else %}
+                            Nunca
+                            {% endif %}
+                        </p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Actions -->
+            <div class="d-flex gap-2 mt-4">
+                <a href="{% url 'usuario_update' usuario.pk %}" class="btn btn-primary">
+                    <i class="bi bi-pencil me-2"></i>Editar Perfil
+                </a>
+                <a href="{% url 'usuario_list' %}" class="btn btn-outline-secondary">
+                    <i class="bi bi-arrow-left me-2"></i>Volver
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

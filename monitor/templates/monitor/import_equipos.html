@@ -1,0 +1,367 @@
+{% extends 'base.html' %}
+
+{% block header_title %}Importar Equipos{% endblock %}
+{% block header_subtitle %}Cargue equipos desde un archivo Excel (.xlsx){% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-lg-8 mx-auto">
+        <!-- Import Form Card -->
+        <div class="card-dashboard p-4 mb-4">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <div>
+                    <h5 class="text-white mb-1">Importación de Equipos</h5>
+                    <small class="text-secondary">Seleccione un archivo Excel con los datos de equipos a
+                        importar</small>
+                </div>
+                <a href="{% url 'download_import_template' %}" class="btn btn-outline-secondary btn-sm">
+                    <i class="bi bi-download"></i> Plantilla XLSX
+                </a>
+            </div>
+
+            <!-- Error Alert -->
+            {% if error %}
+            <div class="alert alert-danger alert-dismissible fade show" role="alert">
+                <i class="bi bi-exclamation-triangle-fill me-2"></i>
+                {{ error }}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>
+            {% endif %}
+
+            <!-- Duplicate Preview Section -->
+            {% if show_preview %}
+            <div class="alert alert-warning mb-4">
+                <h6 class="alert-heading mb-3">
+                    <i class="bi bi-exclamation-triangle-fill me-2"></i>
+                    Se encontraron {{ duplicate_count }} equipo{{ duplicate_count|pluralize }} duplicado{{
+                    duplicate_count|pluralize }}
+                </h6>
+                <p class="mb-0">Se encontraron equipos con IDs que ya existen en el sistema. ¿Cómo desea proceder?</p>
+            </div>
+
+            <!-- Duplicate Action Selection -->
+            <div class="card-dashboard p-4 mb-4">
+                <h6 class="text-white mb-3">Seleccione una acción:</h6>
+
+                <form method="post" id="confirmImportForm">
+                    {% csrf_token %}
+                    <input type="hidden" name="confirm_import" value="true">
+
+                    <div class="mb-3">
+                        <div class="form-check mb-2">
+                            <input class="form-check-input" type="radio" name="duplicate_action" id="action_skip"
+                                value="skip" checked>
+                            <label class="form-check-label text-white" for="action_skip">
+                                <strong>Omitir duplicados</strong>
+                                <small class="d-block text-secondary">Mantener los datos existentes sin cambios</small>
+                            </label>
+                        </div>
+
+                        <div class="form-check">
+                            <input class="form-check-input" type="radio" name="duplicate_action" id="action_update"
+                                value="update">
+                            <label class="form-check-label text-white" for="action_update">
+                                <strong>Actualizar duplicados</strong>
+                                <small class="d-block text-secondary">
+                                    Fusionar datos del archivo con los existentes<br>
+                                    <i class="bi bi-info-circle me-1"></i>
+                                    Los campos vacíos en el archivo NO sobrescribirán datos existentes
+                                </small>
+                            </label>
+                        </div>
+                    </div>
+
+                    <!-- Summary -->
+                    <div class="alert alert-info mb-3">
+                        <div class="row text-center">
+                            <div class="col-4">
+                                <strong class="d-block">{{ new_count }}</strong>
+                                <small>Nuevos</small>
+                            </div>
+                            <div class="col-4">
+                                <strong class="d-block">{{ duplicate_count }}</strong>
+                                <small>Duplicados</small>
+                            </div>
+                            <div class="col-4">
+                                <strong class="d-block text-danger">{{ error_count }}</strong>
+                                <small>Errores</small>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Duplicate Details Table -->
+                    <div class="mb-4">
+                        <h6 class="text-white mb-3">Equipos duplicados detectados:</h6>
+                        <div class="table-responsive">
+                            <table class="table table-custom table-sm">
+                                <thead>
+                                    <tr>
+                                        <th>Fila</th>
+                                        <th>ID Equipo</th>
+                                        <th>IP Actual</th>
+                                        <th>IP en Archivo</th>
+                                        <th>Marca Actual</th>
+                                        <th>Marca en Archivo</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for dup in duplicates %}
+                                    <tr>
+                                        <td><span class="badge bg-warning text-dark">{{ dup.row }}</span></td>
+                                        <td class="font-monospace">{{ dup.id_equipo }}</td>
+                                        <td class="font-monospace text-info">{{ dup.existing_ip }}</td>
+                                        <td class="font-monospace">{{ dup.import_ip }}</td>
+                                        <td><span class="badge bg-secondary">{{ dup.existing_marca }}</span></td>
+                                        <td><span class="badge bg-primary">{{ dup.import_marca }}</span></td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                            {% if total_duplicates > 50 %}
+                            <p class="text-secondary small mb-0">
+                                <i class="bi bi-info-circle me-1"></i>
+                                Mostrando primeros 50 de {{ total_duplicates }} duplicados
+                            </p>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <!-- Validation Errors -->
+                    {% if validation_errors %}
+                    <div class="alert alert-danger mb-4">
+                        <h6 class="alert-heading">Errores de validación ({{ error_count }}):</h6>
+                        <ul class="mb-0">
+                            {% for err in validation_errors %}
+                            <li>Fila {{ err.row }}: {{ err.error }}</li>
+                            {% endfor %}
+                        </ul>
+                    </div>
+                    {% endif %}
+
+                    <!-- Action Buttons -->
+                    <div class="d-flex gap-2">
+                        <a href="{% url 'import_equipos' %}" class="btn btn-outline-secondary">
+                            <i class="bi bi-x-lg me-2"></i>Cancelar
+                        </a>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="bi bi-check-lg me-2"></i>Confirmar Importación
+                        </button>
+                    </div>
+                </form>
+            </div>
+            {% endif %}
+
+            <!-- Original Import Form (only show if not in preview) -->
+            {% if not show_preview and not import_completed %}
+            <form method="post" enctype="multipart/form-data" id="importForm">
+                {% csrf_token %}
+
+                <div class="mb-4">
+                    {% if form.archivo_xlsx.errors %}
+                    <div class="alert alert-danger">
+                        {{ form.archivo_xlsx.errors }}
+                    </div>
+                    {% endif %}
+
+                    <!-- Custom File Upload Area -->
+                    <div class="file-upload-area" id="fileUploadArea">
+                        <input type="file" name="archivo_xlsx" id="id_archivo_xlsx" class="form-control d-none"
+                            accept=".xlsx" required>
+                        <div class="file-upload-content text-center py-5">
+                            <i class="bi bi-cloud-upload text-secondary" style="font-size: 3rem;"></i>
+                            <p class="text-white mt-3 mb-1">Arrastre el archivo aquí o haga clic para seleccionar</p>
+                            <small class="text-secondary">Solo archivos .xlsx hasta 5MB</small>
+                            <div class="mt-3" id="selectedFileName" style="display: none;">
+                                <span class="badge bg-primary"><i class="bi bi-file-earmark-excel me-1"></i><span
+                                        id="fileName"></span></span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <small class="form-text text-secondary">
+                        {{ form.archivo_xlsx.help_text }}
+                    </small>
+                </div>
+
+                <div class="d-grid">
+                    <button type="submit" class="btn btn-primary btn-lg" id="submitBtn">
+                        <i class="bi bi-upload me-2"></i>Importar Equipos
+                    </button>
+                </div>
+            </form>
+        </div>
+        {% endif %}
+
+        <!-- Results Card -->
+        {% if import_completed %}
+        <div class="card-dashboard p-4 mb-4">
+            <h5 class="text-white mb-4">Resultados de la Importación</h5>
+
+            <!-- Success Summary -->
+            {% if created_count or updated_count %}
+            <div class="alert alert-success">
+                <i class="bi bi-check-circle-fill me-2"></i>
+                {% if created_count > 0 %}
+                <strong>{{ created_count }}</strong> equipo{{ created_count|pluralize }} creado{{
+                created_count|pluralize }}{% if updated_count > 0 %}, {% endif %}
+                {% endif %}
+                {% if updated_count > 0 %}
+                <strong>{{ updated_count }}</strong> equipo{{ updated_count|pluralize }} actualizado{{
+                updated_count|pluralize }}
+                {% endif %}
+                exitosamente.
+            </div>
+            {% endif %}
+
+            <!-- Skipped Summary -->
+            {% if skipped_count > 0 %}
+            <div class="alert alert-info">
+                <i class="bi bi-info-circle-fill me-2"></i>
+                <strong>{{ skipped_count }}</strong> equipo{{ skipped_count|pluralize }} duplicado{{
+                skipped_count|pluralize }} omitido{{ skipped_count|pluralize }}.
+            </div>
+            {% endif %}
+
+            <!-- Error Summary -->
+            {% if error_count > 0 %}
+            <div class="alert alert-warning">
+                <i class="bi bi-exclamation-triangle-fill me-2"></i>
+                <strong>{{ error_count }}</strong> fila{{ error_count|pluralize }} con errores.
+                {% if total_errors > 50 %}
+                <small class="d-block mt-1">Mostrando los primeros 50 errores.</small>
+                {% endif %}
+            </div>
+
+            <!-- Error Details -->
+            <div class="table-responsive mt-3">
+                <table class="table table-custom">
+                    <thead>
+                        <tr>
+                            <th>Fila</th>
+                            <th>Error</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for err in errors %}
+                        <tr>
+                            <td><span class="badge bg-danger">{{ err.row }}</span></td>
+                            <td>{{ err.error }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% endif %}
+
+            <!-- Action Buttons -->
+            <div class="mt-4">
+                <a href="{% url 'equipo_list' %}" class="btn btn-outline-primary">
+                    <i class="bi bi-list-ul me-2"></i>Ver Equipos Importados
+                </a>
+                <a href="{% url 'import_equipos' %}" class="btn btn-outline-secondary">
+                    <i class="bi bi-arrow-clockwise me-2"></i>Nueva Importación
+                </a>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Instructions Card -->
+        <div class="card-dashboard p-4">
+            <h6 class="text-white mb-3">
+                <i class="bi bi-info-circle me-2"></i>Instrucciones
+            </h6>
+            <ul class="text-secondary small mb-0">
+                <li class="mb-2">El archivo debe ser formato Excel (.xlsx)</li>
+                <li class="mb-2">La primera fila debe contener los encabezados de las columnas</li>
+                <li class="mb-2">Campos requeridos: <code>ID Equipo</code> e <code>IP</code></li>
+                <li class="mb-2">Campos opcionales: Marca, Tipo, Estado, Medio Comunicación, Latitud, Longitud,
+                    Dirección, Poste, Piloto, Canasta, Permisos</li>
+                <li class="mb-2">Los encabezados NO distinguen mayúsculas/minúsculas ni tildes</li>
+                <li class="mb-2">Si una Marca o Tipo no existe, se creará automáticamente</li>
+                <li class="mb-2">Si se encuentran equipos duplicados (mismo ID), podrá elegir omitirlos o actualizarlos
+                </li>
+                <li class="mb-2">Al actualizar, los campos vacíos del archivo NO sobrescribirán datos existentes</li>
+            </ul>
+        </div>
+    </div>
+</div>
+
+<style>
+    .file-upload-area {
+        border: 2px dashed #4a5568;
+        border-radius: 12px;
+        background: rgba(255, 255, 255, 0.02);
+        cursor: pointer;
+        transition: all 0.3s ease;
+    }
+
+    .file-upload-area:hover {
+        border-color: #60a5fa;
+        background: rgba(96, 165, 250, 0.05);
+    }
+
+    .file-upload-area.dragover {
+        border-color: #3b82f6;
+        background: rgba(59, 130, 246, 0.1);
+    }
+</style>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        const fileUploadArea = document.getElementById('fileUploadArea');
+        const fileInput = document.getElementById('id_archivo_xlsx');
+        const selectedFileName = document.getElementById('selectedFileName');
+        const fileName = document.getElementById('fileName');
+        const submitBtn = document.getElementById('submitBtn');
+        const form = document.getElementById('importForm');
+
+        // Click to select file
+        fileUploadArea.addEventListener('click', () => {
+            fileInput.click();
+        });
+
+        // File selection
+        fileInput.addEventListener('change', (e) => {
+            if (e.target.files.length > 0) {
+                const file = e.target.files[0];
+                fileName.textContent = file.name;
+                selectedFileName.style.display = 'block';
+            }
+        });
+
+        // Drag and drop
+        fileUploadArea.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            fileUploadArea.classList.add('dragover');
+        });
+
+        fileUploadArea.addEventListener('dragleave', () => {
+            fileUploadArea.classList.remove('dragover');
+        });
+
+        fileUploadArea.addEventListener('drop', (e) => {
+            e.preventDefault();
+            fileUploadArea.classList.remove('dragover');
+
+            if (e.dataTransfer.files.length > 0) {
+                const file = e.dataTransfer.files[0];
+
+                // Check file extension
+                if (file.name.endsWith('.xlsx')) {
+                    fileInput.files = e.dataTransfer.files;
+                    fileName.textContent = file.name;
+                    selectedFileName.style.display = 'block';
+                } else {
+                    alert('Por favor seleccione un archivo .xlsx');
+                }
+            }
+        });
+
+        // Form submission
+        form.addEventListener('submit', () => {
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Importando...';
+        });
+    });
+</script>
+{% endblock %}
