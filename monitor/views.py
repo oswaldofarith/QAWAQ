@@ -12,6 +12,9 @@ from .models import Equipo, HistorialDisponibilidad, ConfiguracionGlobal, Marca,
 from .forms import EquipoImportForm, UserProfileForm, ConfiguracionGlobalForm, MarcaForm, TipoEquipoForm, EquipoForm, PasswordChangeForm
 import csv
 from django.http import HttpResponse
+import pandas as pd
+import openpyxl
+import re
 
 @login_required_method
 class DashboardView(TemplateView):
@@ -2011,7 +2014,7 @@ class EventoCreateView(View):
         if form.is_valid():
             form.save()
             messages.success(request, 'Evento de facturación creado exitosamente.')
-            return redirect('calendario')
+            return redirect('evento_list')
         return render(request, 'monitor/evento_form.html', {'form': form})
 
 
@@ -2033,7 +2036,7 @@ class EventoUpdateView(View):
         if form.is_valid():
             form.save()
             messages.success(request, 'Evento actualizado exitosamente.')
-            return redirect('calendario')
+            return redirect('evento_list')
         return render(request, 'monitor/evento_form.html', {
             'form': form,
             'evento': evento
@@ -2128,4 +2131,323 @@ class PorcionDeleteView(View):
         porcion.delete()
         messages.success(request, 'Porción eliminada exitosamente.')
         return redirect('porcion_list')
+
+
+
+# ==================== MEDIDORES (AMI METERS) VIEWS ====================
+
+from .models import Porcion, Medidor
+from django.db import transaction
+import re
+
+@admin_required_method
+class MedidorListView(ListView):
+    """View to list all AMI meters (read-only)."""
+    model = Medidor
+    template_name = 'monitor/medidor_list.html'
+    context_object_name = 'medidores'
+    paginate_by = 50
+    
+    def get_queryset(self):
+        qs = super().get_queryset().select_related('porcion')
+        
+        # Filter by marca if specified
+        marca = self.request.GET.get('marca')
+        if marca:
+            qs = qs.filter(marca=marca)
+        
+        # Filter by porcion if specified
+        porcion_id = self.request.GET.get('porcion')
+        if porcion_id:
+            qs = qs.filter(porcion_id=porcion_id)
+        
+        # Search by numero
+        search = self.request.GET.get('q')
+        if search:
+            qs = qs.filter(numero__icontains=search)
+        
+        return qs.order_by('numero')
+    
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['marca_filter'] = self.request.GET.get('marca', '')
+        context['porcion_filter'] = self.request.GET.get('porcion', '')
+        context['search_query'] = self.request.GET.get('q', '')
+        context['porciones'] = Porcion.objects.all().order_by('nombre')
+        context['marcas'] = Medidor.MARCA_CHOICES
+        
+        # Count statistics
+        total = Medidor.objects.count()
+        honeywell = Medidor.objects.filter(marca='HONEYWELL').count()
+        trilliant = Medidor.objects.filter(marca='TRILLIANT').count()
+        itron = Medidor.objects.filter(marca='ITRON').count()
+        hexing = Medidor.objects.filter(marca='HEXING').count()
+        
+        # Get brand colors from Marca model
+        from .models import Marca
+        marca_colors = {}
+        for marca in Marca.objects.all():
+            marca_colors[marca.nombre.upper()] = marca.color
+        
+        # Format numbers with thousand separators (dots)
+        context['total_medidores'] = f"{total:,}".replace(',', '.')
+        context['stats'] = {
+            'honeywell': {
+                'count': f"{honeywell:,}".replace(',', '.'),
+                'color': marca_colors.get('HONEYWELL', '#0dcaf0')  # Default fallback to info color
+            },
+            'trilliant': {
+                'count': f"{trilliant:,}".replace(',', '.'),
+                'color': marca_colors.get('TRILLIANT', '#ffc107')  # Default fallback to warning color
+            },
+            'itron': {
+                'count': f"{itron:,}".replace(',', '.'),
+                'color': marca_colors.get('ITRON', '#198754')  # Default fallback to success color
+            },
+            'hexing': {
+                'count': f"{hexing:,}".replace(',', '.'),
+                'color': marca_colors.get('HEXING', '#dc3545')  # Default fallback to danger color
+            },
+        }
+        
+        return context
+
+
+@admin_required_method
+class ImportMedidoresView(View):
+    """View to import AMI meters from XLSX files with data transformations."""
+    
+    def get(self, request):
+        return render(request, 'monitor/import_medidores.html', {
+            'total_medidores': Medidor.objects.count()
+        })
+    
+    def post(self, request):
+        import logging
+        import traceback
+        logger = logging.getLogger(__name__)
+        
+        if 'file' not in request.FILES:
+            messages.error(request, 'No se ha seleccionado ningún archivo.')
+            return redirect('import_medidores')
+        
+        xlsx_file = request.FILES['file']
+        
+        # Log file details
+        logger.info(f"Processing file: {xlsx_file.name}, Size: {xlsx_file.size} bytes")
+        
+        # Validate file extension
+        if not xlsx_file.name.endswith(('.xlsx', '.xls')):
+            messages.error(request, 'El archivo debe ser formato XLSX o XLS.')
+            return redirect('import_medidores')
+        
+        # Check file size (100 MB limit)
+        max_size = 100 * 1024 * 1024  # 100 MB
+        if xlsx_file.size > max_size:
+            messages.error(request, f'El archivo es demasiado grande ({xlsx_file.size / 1024 / 1024:.2f} MB). Máximo permitido: 100 MB.')
+            return redirect('import_medidores')
+        
+        try:
+            logger.info("Starting XLSX processing...")
+            # Process XLSX file
+            processed_data = self._process_xlsx_data(xlsx_file)
+            logger.info(f"Processed {len(processed_data)} records from XLSX")
+            
+            if not processed_data:
+                messages.warning(request, 'No se encontraron datos válidos en el archivo.')
+                return redirect('import_medidores')
+            
+            logger.info("Starting data import...")
+            # Import data (delete existing and create new)
+            imported_count = self._import_data(processed_data)
+            logger.info(f"Imported {imported_count} medidores")
+            
+            logger.info("Updating porcion descriptions...")
+            # Update porcion descriptions
+            self._update_porcion_descriptions()
+            logger.info("Porcion descriptions updated successfully")
+            
+            messages.success(
+                request,
+                f'Importación exitosa: {imported_count} medidores importados. '
+                f'Las descripciones de las porciones han sido actualizadas.'
+            )
+            return redirect('medidor_list')
+            
+        except ValueError as e:
+            logger.error(f"ValueError during import: {str(e)}")
+            logger.error(traceback.format_exc())
+            messages.error(request, f'Error de validación: {str(e)}')
+            return redirect('import_medidores')
+        except MemoryError as e:
+            logger.error(f"MemoryError during import: {str(e)}")
+            logger.error(traceback.format_exc())
+            messages.error(request, 'El archivo es demasiado grande y excede la memoria disponible. Intente con un archivo más pequeño.')
+            return redirect('import_medidores')
+        except Exception as e:
+            logger.error(f"Unexpected error during import: {str(e)}")
+            logger.error(traceback.format_exc())
+            messages.error(request, f'Error al procesar el archivo: {str(e)}. Revise los logs del servidor para más detalles.')
+            return redirect('import_medidores')
+    
+    def _process_xlsx_data(self, xlsx_file):
+        """Process XLSX file with all transformations."""
+        # Read Excel file
+        df = pd.read_excel(xlsx_file, header=None)
+        
+        # Extract only columns B (index 1), D (index 3), U (index 20)
+        # Note: pandas uses 0-based indexing
+        if df.shape[1] < 21:  # Need at least 21 columns (0-20)
+            raise ValueError('El archivo no tiene las columnas esperadas (B, D, U)')
+        
+        # Extract columns
+        data = df[[1, 3, 20]].copy()  # B=1, D=3, U=20
+        data.columns = ['numero', 'marca_original', 'porcion_original']
+        
+        # Remove header row if present (skip first row if it looks like a header)
+        if len(data) > 0 and data.iloc[0]['numero'] and isinstance(data.iloc[0]['numero'], str):
+            if not str(data.iloc[0]['numero']).replace('.', '').replace('-', '').isdigit():
+                data = data.iloc[1:]
+        
+        # Remove empty rows
+        data = data.dropna(subset=['numero', 'marca_original', 'porcion_original'])
+        
+        # Convert to string and clean
+        data['numero'] = data['numero'].astype(str).str.strip()
+        data['marca_original'] = data['marca_original'].astype(str).str.strip().str.upper()
+        data['porcion_original'] = data['porcion_original'].astype(str).str.strip()
+        
+        # Remove empty rows again after conversion
+        data = data[data['numero'] != '']
+        data = data[data['marca_original'] != '']
+        data = data[data['porcion_original'] != '']
+        
+        # Transform marcas according to rules
+        marca_map = {
+            'ELSTER': 'HONEYWELL',
+            'HONEYWELL': 'HONEYWELL',
+            'GENERAL ELECTRIC': 'TRILLIANT',
+            'ITRON': 'ITRON',
+            'HEXING': 'HEXING',
+        }
+        
+        data['marca'] = data['marca_original'].map(marca_map)
+        
+        # Filter out unwanted marcas (ACLARA, SMART, and any others not in our map)
+        data = data[data['marca'].notna()]
+        
+        # Normalize porciones
+        data['porcion'] = data['porcion_original'].apply(self._normalize_porcion)
+        
+        # Filter out porciones ending in M
+        data = data[~data['porcion'].str.upper().str.endswith('M')]
+        
+        # Filter only porciones ending in I or E
+        data = data[data['porcion'].str.upper().str.endswith(('I', 'E'))]
+        
+        # Remove duplicates based on numero
+        data = data.drop_duplicates(subset=['numero'], keep='first')
+        
+        # Convert to list of dicts
+        processed_records = data[['numero', 'marca', 'porcion']].to_dict('records')
+        
+        return processed_records
+    
+    def _normalize_porcion(self, porcion_str):
+        """
+        Normalize porcion format:
+        - Remove leading zeros
+        - Keep last letter capitalized
+        - Examples: 0401I -> 401I, 0402E -> 402E
+        """
+        porcion_str = str(porcion_str).strip()
+        
+        # Extract numbers and letter
+        match = re.match(r'^0*(\d+)([IiEe])$', porcion_str)
+        if not match:
+            # If doesn't match expected pattern, return as is
+            return porcion_str
+        
+        number = match.group(1)
+        letter = match.group(2).upper()
+        
+        return f"{number}{letter}"
+    
+    @transaction.atomic
+    def _import_data(self, processed_data):
+        """Delete all existing data and import new data."""
+        # Delete all existing medidores
+        Medidor.objects.all().delete()
+        
+        # Create new medidores
+        imported_count = 0
+        errors = []
+        
+        for record in processed_data:
+            try:
+                # Find or create porcion
+                porcion_nombre = record['porcion']
+                porcion, created = Porcion.objects.get_or_create(
+                    nombre=porcion_nombre,
+                    defaults={'tipo': 'MASIVO'}  # Default type
+                )
+                
+                # Create medidor
+                Medidor.objects.create(
+                    numero=record['numero'],
+                    marca=record['marca'],
+                    porcion=porcion
+                )
+                imported_count += 1
+                
+            except Exception as e:
+                errors.append(f"Error en medidor {record.get('numero', 'N/A')}: {str(e)}")
+                continue
+        
+        if errors:
+            # Log errors (could be enhanced with proper logging)
+            print(f"Errors during import: {errors[:10]}")  # Show first 10 errors
+        
+        return imported_count
+    
+    def _update_porcion_descriptions(self):
+        """Update all porcion descriptions with meter counts by brand."""
+        porciones = Porcion.objects.all()
+        
+        for porcion in porciones:
+            # Count medidores by marca for this porcion
+            counts = {
+                'honeywell': porcion.medidores.filter(marca='HONEYWELL').count(),
+                'trilliant': porcion.medidores.filter(marca='TRILLIANT').count(),
+                'itron': porcion.medidores.filter(marca='ITRON').count(),
+                'hexing': porcion.medidores.filter(marca='HEXING').count(),
+            }
+            
+            total = sum(counts.values())
+            
+            if total == 0:
+                porcion.descripcion = "No existen medidores AMI en esta porción"
+            else:
+                # Build description string with formatted numbers
+                parts = []
+                if counts['honeywell'] > 0:
+                    parts.append(f"{counts['honeywell']:,} Honeywell".replace(',', '.'))
+                if counts['itron'] > 0:
+                    parts.append(f"{counts['itron']:,} Itron".replace(',', '.'))
+                if counts['trilliant'] > 0:
+                    parts.append(f"{counts['trilliant']:,} Trilliant".replace(',', '.'))
+                if counts['hexing'] > 0:
+                    parts.append(f"{counts['hexing']:,} Hexing".replace(',', '.'))
+                
+                # Format with proper grammar
+                if len(parts) == 1:
+                    marca_text = parts[0]
+                elif len(parts) == 2:
+                    marca_text = f"{parts[0]} y {parts[1]}"
+                else:
+                    marca_text = f"{', '.join(parts[:-1])} y {parts[-1]}"
+                
+                porcion.descripcion = f"{total:,} medidores AMI en total: {marca_text}".replace(',', '.')
+            
+            porcion.save()
 

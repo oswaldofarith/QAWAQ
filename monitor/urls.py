@@ -59,4 +59,8 @@ urlpatterns = [
     path('porciones/nueva/', views.PorcionCreateView.as_view(), name='porcion_create'),
     path('porciones/<int:pk>/editar/', views.PorcionUpdateView.as_view(), name='porcion_update'),
     path('porciones/<int:pk>/eliminar/', views.PorcionDeleteView.as_view(), name='porcion_delete'),
+    
+    # Medidores
+    path('medidores/', views.MedidorListView.as_view(), name='medidor_list'),
+    path('medidores/importar/', views.ImportMedidoresView.as_view(), name='import_medidores'),
 ]

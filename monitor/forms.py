@@ -509,6 +509,10 @@ class EventoFacturacionForm(forms.ModelForm):
         # Set default tipo_evento to FACTURACION for new events
         if not self.instance.pk:
             self.fields['tipo_evento'].initial = 'FACTURACION'
+        else:
+            # When editing, format the date for HTML5 date input (YYYY-MM-DD)
+            if self.instance.fecha:
+                self.fields['fecha'].initial = self.instance.fecha.strftime('%Y-%m-%d')
     
     def clean(self):
         """Validate and auto-create billing cycle if needed."""

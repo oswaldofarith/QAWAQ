@@ -241,3 +241,27 @@ class UserProfile(models.Model):
         if self.user.first_name or self.user.last_name:
             return f"{self.user.first_name} {self.user.last_name}".strip()
         return self.user.username
+
+
+class Medidor(models.Model):
+    """Medidor AMI (Advanced Metering Infrastructure)."""
+    MARCA_CHOICES = [
+        ('HONEYWELL', 'Honeywell'),
+        ('TRILLIANT', 'Trilliant'),
+        ('ITRON', 'Itron'),
+        ('HEXING', 'Hexing'),
+    ]
+    
+    numero = models.CharField(max_length=100, unique=True, verbose_name='Número de Medidor')
+    marca = models.CharField(max_length=20, choices=MARCA_CHOICES, verbose_name='Marca')
+    porcion = models.ForeignKey(Porcion, on_delete=models.CASCADE, related_name='medidores', verbose_name='Porción')
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        verbose_name = 'Medidor'
+        verbose_name_plural = 'Medidores'
+        ordering = ['numero']
+    
+    def __str__(self):
+        return f"{self.numero} ({self.marca})"

@@ -1,0 +1,114 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block header_title %}Importar Medidores AMI{% endblock %}
+{% block header_subtitle %}Importación desde archivo XLSX{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-8">
+        <!-- Information Card -->
+        <div class="card border-warning mb-4">
+            <div class="card-header bg-warning text-dark">
+                <i class="bi bi-exclamation-triangle-fill"></i> <strong>Advertencia Importante</strong>
+            </div>
+            <div class="card-body">
+                <p class="mb-2"><strong>Esta operación eliminará todos los medidores existentes antes de importar los nuevos datos.</strong></p>
+                <p class="mb-2">Actualmente hay <strong>{{ total_medidores }}</strong> medidor(es) en la base de datos.</p>
+                <p class="mb-0 text-warning">Por favor, asegúrese de que el archivo XLSX contiene los datos correctos antes de continuar.</p>
+            </div>
+        </div>
+
+        <!-- Instructions Card -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <i class="bi bi-info-circle-fill text-primary"></i> <strong>Formato del Archivo</strong>
+            </div>
+            <div class="card-body">
+                <p class="mb-3">El archivo XLSX debe contener las siguientes columnas:</p>
+                <ul>
+                    <li><strong>Columna B:</strong> Número de medidor</li>
+                    <li><strong>Columna D:</strong> Marca del medidor (ELSTER, HONEYWELL, GENERAL ELECTRIC, ITRON, HEXING)</li>
+                    <li><strong>Columna U:</strong> Porción (formato: 0401I, 0402E, etc.)</li>
+                </ul>
+                
+                <div class="alert alert-info mt-3" role="alert">
+                    <strong>Transformaciones automáticas:</strong>
+                    <ul class="mb-0 mt-2">
+                        <li>ELSTER y HONEYWELL → HONEYWELL</li>
+                        <li>GENERAL ELECTRIC → TRILLIANT</li>
+                        <li>Porciones: Se eliminarán ceros iniciales (0401I → 401I)</li>
+                        <li>Se filtrarán medidores con marcas ACLARA, SMART</li>
+                        <li>Se filtrarán porciones que terminen en M</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <!-- Upload Form -->
+        <div class="card">
+            <div class="card-header">
+                <i class="bi bi-upload"></i> <strong>Seleccionar Archivo</strong>
+            </div>
+            <div class="card-body">
+                <form method="post" enctype="multipart/form-data" id="importForm">
+                    {% csrf_token %}
+                    <div class="mb-3">
+                        <label for="file" class="form-label">Archivo XLSX</label>
+                        <input type="file" 
+                               class="form-control" 
+                               id="file" 
+                               name="file" 
+                               accept=".xlsx,.xls"
+                               required>
+                        <div class="form-text">
+                            Solo archivos .xlsx o .xls
+                        </div>
+                    </div>
+
+                    <div class="form-check mb-3">
+                        <input class="form-check-input" 
+                               type="checkbox" 
+                               id="confirmDelete" 
+                               required>
+                        <label class="form-check-label" for="confirmDelete">
+                            Confirmo que deseo eliminar todos los medidores existentes e importar los nuevos datos
+                        </label>
+                    </div>
+
+                    <div class="d-flex justify-content-between">
+                        <a href="{% url 'medidor_list' %}" class="btn btn-outline-secondary">
+                            <i class="bi bi-x-circle"></i> Cancelar
+                        </a>
+                        <button type="submit" class="btn btn-success" id="submitBtn" disabled>
+                            <i class="bi bi-upload"></i> Importar Medidores
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Back Link -->
+        <div class="mt-3">
+            <a href="{% url 'medidor_list' %}" class="text-decoration-none text-secondary">
+                <i class="bi bi-arrow-left"></i> Volver al listado de medidores
+            </a>
+        </div>
+    </div>
+</div>
+
+<script>
+    // Enable submit button only when checkbox is checked
+    document.getElementById('confirmDelete').addEventListener('change', function() {
+        document.getElementById('submitBtn').disabled = !this.checked;
+    });
+
+    // Show loading indicator on form submit
+    document.getElementById('importForm').addEventListener('submit', function(e) {
+        const submitBtn = document.getElementById('submitBtn');
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Procesando...';
+    });
+</script>
+
+{% endblock %}

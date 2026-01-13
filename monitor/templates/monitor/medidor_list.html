@@ -1,0 +1,205 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block header_title %}Medidores AMI{% endblock %}
+{% block header_subtitle %}{{ total_medidores }} medidores en total{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-body">
+                <div class="row g-3">
+                    <!-- Statistics Cards -->
+                    <div class="col-md-3">
+                        <div class="text-center">
+                            <div class="text-muted small">Total</div>
+                            <div class="h3">{{ total_medidores }}</div>
+                        </div>
+                    </div>
+                    <div class="col-md-2">
+                        <div class="text-center">
+                            <div class="text-muted small">Honeywell</div>
+                            <div class="h4" style="color: {{ stats.honeywell.color }};">{{ stats.honeywell.count }}</div>
+                        </div>
+                    </div>
+                    <div class="col-md-2">
+                        <div class="text-center">
+                            <div class="text-muted small">Itron</div>
+                            <div class="h4" style="color: {{ stats.itron.color }};">{{ stats.itron.count }}</div>
+                        </div>
+                    </div>
+                    <div class="col-md-2">
+                        <div class="text-center">
+                            <div class="text-muted small">Trilliant</div>
+                            <div class="h4" style="color: {{ stats.trilliant.color }};">{{ stats.trilliant.count }}</div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="text-center">
+                            <div class="text-muted small">Hexing</div>
+                            <div class="h4" style="color: {{ stats.hexing.color }};">{{ stats.hexing.count }}</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Filters and Search -->
+<div class="row mb-3">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-body">
+                <form method="get" class="row g-3">
+                    <div class="col-md-3">
+                        <label class="form-label">Buscar por Número</label>
+                        <input type="text" name="q" class="form-control" 
+                               placeholder="Número de medidor..." value="{{ search_query }}">
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">Filtrar por Marca</label>
+                        <select name="marca" class="form-select">
+                            <option value="">Todas las marcas</option>
+                            {% for value, label in marcas %}
+                            <option value="{{ value }}" {% if marca_filter == value %}selected{% endif %}>
+                                {{ label }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label">Filtrar por Porción</label>
+                        <select name="porcion" class="form-select">
+                            <option value="">Todas las porciones</option>
+                            {% for porcion in porciones %}
+                            <option value="{{ porcion.id }}" {% if porcion_filter|stringformat:"s" == porcion.id|stringformat:"s" %}selected{% endif %}>
+                                {{ porcion.nombre }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-2 d-flex align-items-end">
+                        <button type="submit" class="btn btn-primary me-2 w-100">
+                            <i class="bi bi-search"></i> Filtrar
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Action Button -->
+<div class="row mb-3">
+    <div class="col-12">
+        <a href="{% url 'import_medidores' %}" class="btn btn-success">
+            <i class="bi bi-upload"></i> Importar Archivo XLSX
+        </a>
+        <a href="{% url 'medidor_list' %}" class="btn btn-outline-secondary ms-2">
+            <i class="bi bi-x-circle"></i> Limpiar Filtros
+        </a>
+    </div>
+</div>
+
+<!-- Medidores Table -->
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">
+                    <i class="bi bi-speedometer2 text-primary"></i> Listado de Medidores
+                </h5>
+                <span class="badge bg-secondary">{{ page_obj.paginator.count }} registros</span>
+            </div>
+            <div class="card-body p-0">
+                {% if medidores %}
+                <div class="table-responsive">
+                    <table class="table table-hover mb-0">
+                        <thead>
+                            <tr>
+                                <th style="width: 40%;">Número de Medidor</th>
+                                <th style="width: 30%;">Marca</th>
+                                <th style="width: 30%;">Porción</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for medidor in medidores %}
+                            <tr>
+                                <td>{{ medidor.numero }}</td>
+                                <td>
+                                    {% if medidor.marca == 'HONEYWELL' %}
+                                    <span class="badge bg-info">{{ medidor.get_marca_display }}</span>
+                                    {% elif medidor.marca == 'ITRON' %}
+                                    <span class="badge bg-success">{{ medidor.get_marca_display }}</span>
+                                    {% elif medidor.marca == 'TRILLIANT' %}
+                                    <span class="badge bg-warning text-dark">{{ medidor.get_marca_display }}</span>
+                                    {% elif medidor.marca == 'HEXING' %}
+                                    <span class="badge bg-danger">{{ medidor.get_marca_display }}</span>
+                                    {% endif %}
+                                </td>
+                                <td>{{ medidor.porcion.nombre }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <div class="p-5 text-center text-secondary">
+                    <i class="bi bi-inbox" style="font-size: 3rem;"></i>
+                    <p class="mt-3">No se encontraron medidores.</p>
+                    <a href="{% url 'import_medidores' %}" class="btn btn-primary">
+                        <i class="bi bi-upload"></i> Importar Medidores
+                    </a>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Pagination -->
+{% if is_paginated %}
+<div class="row mt-4">
+    <div class="col-12">
+        <nav>
+            <ul class="pagination justify-content-center">
+                {% if page_obj.has_previous %}
+                <li class="page-item">
+                    <a class="page-link" href="?page=1{% if search_query %}&q={{ search_query }}{% endif %}{% if marca_filter %}&marca={{ marca_filter }}{% endif %}{% if porcion_filter %}&porcion={{ porcion_filter }}{% endif %}">
+                        <i class="bi bi-chevron-double-left"></i>
+                    </a>
+                </li>
+                <li class="page-item">
+                    <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if search_query %}&q={{ search_query }}{% endif %}{% if marca_filter %}&marca={{ marca_filter }}{% endif %}{% if porcion_filter %}&porcion={{ porcion_filter }}{% endif %}">
+                        <i class="bi bi-chevron-left"></i>
+                    </a>
+                </li>
+                {% endif %}
+
+                <li class="page-item active">
+                    <span class="page-link bg-primary border-primary">
+                        Página {{ page_obj.number }} de {{ page_obj.paginator.num_pages }}
+                    </span>
+                </li>
+
+                {% if page_obj.has_next %}
+                <li class="page-item">
+                    <a class="page-link" href="?page={{ page_obj.next_page_number }}{% if search_query %}&q={{ search_query }}{% endif %}{% if marca_filter %}&marca={{ marca_filter }}{% endif %}{% if porcion_filter %}&porcion={{ porcion_filter }}{% endif %}">
+                        <i class="bi bi-chevron-right"></i>
+                    </a>
+                </li>
+                <li class="page-item">
+                    <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}{% if search_query %}&q={{ search_query }}{% endif %}{% if marca_filter %}&marca={{ marca_filter }}{% endif %}{% if porcion_filter %}&porcion={{ porcion_filter }}{% endif %}">
+                        <i class="bi bi-chevron-double-right"></i>
+                    </a>
+                </li>
+                {% endif %}
+            </ul>
+        </nav>
+    </div>
+</div>
+{% endif %}
+
+{% endblock %}
