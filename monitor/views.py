@@ -631,47 +631,15 @@ class ImportEquiposView(View):
                     
                     # Check for duplicates
                     if Equipo.objects.filter(id_equipo=equipo_data['id_equipo']).exists():
-                        errors.append({
-                            'row': row_idx,
-                            'error': f'Ya existe un equipo con ID "{equipo_data["id_equipo"]}".'
-                        })
+                        duplicates.append(equipo_data)
                         continue
                     
                     if Equipo.objects.filter(ip=equipo_data['ip']).exists():
-                        errors.append({
-                            'row': row_idx,
-                            'error': f'Ya existe un equipo con IP "{equipo_data["ip"]}".'
-                        })
+                        duplicates.append(equipo_data)
                         continue
                     
-                    # Get or create foreign keys
-                    marca = None
-                    if equipo_data.get('marca'):
-                        marca, _ = Marca.objects.get_or_create(nombre=equipo_data['marca'])
-                    
-                    tipo = None
-                    if equipo_data.get('tipo'):
-                        tipo, _ = TipoEquipo.objects.get_or_create(nombre=equipo_data['tipo'])
-                    
-                    # Create equipment
-                    with transaction.atomic():
-                        equipo = Equipo.objects.create(
-                            id_equipo=equipo_data['id_equipo'],
-                            ip=equipo_data['ip'],
-                            marca=marca,
-                            tipo=tipo,
-                            estado=equipo_data.get('estado', 'ACTIVO'),
-                            medio_comunicacion=equipo_data.get('medio_comunicacion', 'FIBRA'),
-                            latitud=equipo_data.get('latitud'),
-                            longitud=equipo_data.get('longitud'),
-                            direccion=equipo_data.get('direccion'),
-                            poste=equipo_data.get('poste'),
-                            piloto=equipo_data.get('piloto'),
-                            canasta=equipo_data.get('canasta', False),
-                            permisos=equipo_data.get('permisos', False),
-                        )
-                        created_equipos.append(equipo)
-                        success_count += 1
+                    # Add to new records for processing
+                    new_records.append(equipo_data)
                 
                 except Exception as e:
                     errors.append({
@@ -870,11 +838,17 @@ class ImportEquiposView(View):
                     
                     marca = None
                     if equipo_data.get('marca'):
-                        marca, _ = Marca.objects.get_or_create(nombre=equipo_data['marca'])
+                        # Case-insensitive lookup
+                        marca = Marca.objects.filter(nombre__iexact=equipo_data['marca']).first()
+                        if not marca:
+                            marca = Marca.objects.create(nombre=equipo_data['marca'])
                     
                     tipo = None
                     if equipo_data.get('tipo'):
-                        tipo, _ = TipoEquipo.objects.get_or_create(nombre=equipo_data['tipo'])
+                        # Case-insensitive lookup
+                        tipo = TipoEquipo.objects.filter(nombre__iexact=equipo_data['tipo']).first()
+                        if not tipo:
+                            tipo = TipoEquipo.objects.create(nombre=equipo_data['tipo'])
                     
                     Equipo.objects.create(
                         id_equipo=equipo_data['id_equipo'],
@@ -2385,12 +2359,14 @@ class ImportMedidoresView(View):
         
         for record in processed_data:
             try:
-                # Find or create porcion
+                # Find or create porcion (case-insensitive)
                 porcion_nombre = record['porcion']
-                porcion, created = Porcion.objects.get_or_create(
-                    nombre=porcion_nombre,
-                    defaults={'tipo': 'MASIVO'}  # Default type
-                )
+                porcion = Porcion.objects.filter(nombre__iexact=porcion_nombre).first()
+                if not porcion:
+                    porcion = Porcion.objects.create(
+                        nombre=porcion_nombre,
+                        tipo='MASIVO'  # Default type
+                    )
                 
                 # Create medidor
                 Medidor.objects.create(
