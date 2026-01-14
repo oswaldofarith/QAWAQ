@@ -8,7 +8,7 @@ from django.contrib.auth.decorators import login_required
 from django.utils.decorators import method_decorator
 from django.contrib import messages
 from .decorators import admin_required_method, login_required_method
-from .models import Equipo, HistorialDisponibilidad, ConfiguracionGlobal, Marca, TipoEquipo, UserProfile
+from .models import Equipo, HistorialDisponibilidad, ConfiguracionGlobal, Marca, TipoEquipo, UserProfile, Medidor, Porcion
 from .forms import EquipoImportForm, UserProfileForm, ConfiguracionGlobalForm, MarcaForm, TipoEquipoForm, EquipoForm, PasswordChangeForm
 import csv
 from django.http import HttpResponse
@@ -80,30 +80,126 @@ class DashboardView(TemplateView):
         ).aggregate(avg=Avg('packet_loss'))['avg'] or 0
         context['packet_loss'] = round(avg_packet_loss, 2)
 
-        # 4. Offline Devices List (Enriched)
-        # We need downtime duration. 
+        # 4. Offline Devices List (Enriched with Billing Info)
+        # Sort by: 
+        # 1. Billing Priority (Has billing event Today or Tomorrow) -> High Priority
+        # 2. Downtime Duration (Longest first)
+        
         offline_devices = []
-        raw_offline = Equipo.objects.filter(is_online=False, estado='ACTIVO').select_related('marca')
+        raw_offline = Equipo.objects.filter(is_online=False, estado='ACTIVO').select_related('marca').prefetch_related('medidores_asociados__porcion')
+        
+        # Pre-fetch future billing events (FACTURACION only)
+        # We need to find the NEXT billing date for each portion
+        from .models import EventoFacturacion
+        today_date = timezone.localdate()
+        tomorrow_date = today_date + datetime.timedelta(days=1)
+        
+        # Get all future billing events sorted by date
+        billing_events = EventoFacturacion.objects.filter(
+            fecha__gte=today_date,
+            tipo_evento='FACTURACION'
+        ).order_by('fecha')
+        
+        # Map porcion_id -> earliest billing date
+        porcion_billing_map = {}
+        for event in billing_events:
+            if event.porcion_id not in porcion_billing_map:
+                porcion_billing_map[event.porcion_id] = event.fecha
+        
+        days_es = {
+            0: 'Lunes', 1: 'Martes', 2: 'Miércoles', 3: 'Jueves', 
+            4: 'Viernes', 5: 'Sábado', 6: 'Domingo'
+        }
+
         for dev in raw_offline:
-            downtime = "N/A"
+            # 1. Calculate Downtime
+            downtime_str = "N/A"
+            downtime_seconds = 0
+            
             if dev.last_seen:
                 diff = now - dev.last_seen
-                # Format: HH:MM:SS
-                total_seconds = int(diff.total_seconds())
+                downtime_seconds = diff.total_seconds()
+                total_seconds = int(downtime_seconds)
                 hours = total_seconds // 3600
                 minutes = (total_seconds % 3600) // 60
                 seconds = total_seconds % 60
-                downtime = f"{hours:02}:{minutes:02}:{seconds:02}"
+                downtime_str = f"{hours:02}:{minutes:02}:{seconds:02}"
+            else:
+                downtime_seconds = float('inf') # Treat as longest downtime
+            
+            # 2. Determine Billing Status
+            billing_date = None
+            billing_priority = False # True if Today or Tomorrow
+            billing_label = "-"
+            
+            # Check all associated portions for this device
+            # A device (colector) might serve multiple portions, take the most critical one (earliest date)
+            # Also calculate how many meters are in the portions affecting this date
+            
+            # First pass: Determine Billing Date
+            for medidor in dev.medidores_asociados.all():
+                if medidor.porcion_id in porcion_billing_map:
+                    p_date = porcion_billing_map[medidor.porcion_id]
+                    if billing_date is None or p_date < billing_date:
+                        billing_date = p_date
+            
+            # Second pass: Count meters for that specific date
+            afectacion_count = 0
+            if billing_date:
+                for medidor in dev.medidores_asociados.all():
+                    if medidor.porcion_id in porcion_billing_map:
+                       if porcion_billing_map[medidor.porcion_id] == billing_date:
+                           afectacion_count += 1
+            else:
+                 # If no billing date, maybe show total meters? Or 0? User said "associated in the portions that are billing on the date indicated". 
+                 # So if no date indicated (billing_label="-"), count is 0 not relevant.
+                 afectacion_count = 0
+
+            
+            if billing_date:
+                delta_days = (billing_date - today_date).days
+                
+                if delta_days == 0:
+                    billing_label = "Hoy"
+                    billing_priority = True
+                elif delta_days == 1:
+                    billing_label = "Mañana"
+                    billing_priority = True
+                elif delta_days < 7:
+                    # Show Day Name
+                    billing_label = days_es[billing_date.weekday()]
+                else:
+                    # Show Date
+                    billing_label = billing_date.strftime("%d/%m")
+            
+            # 3. Format "Afectación" label
+            afectacion_str = ""
+            if billing_date and afectacion_count > 0:
+                if afectacion_count == 1:
+                    afectacion_str = "1 medidor"
+                else:
+                    afectacion_str = f"{afectacion_count} medidores"
             
             offline_devices.append({
                 'id_equipo': dev.id_equipo,
                 'ip': dev.ip,
                 'marca': dev.marca.nombre if dev.marca else 'Desconocido',
-                'downtime': downtime,
+                'downtime': downtime_str,
+                'downtime_seconds': downtime_seconds, # For sorting
+                'billing_priority': billing_priority, # For sorting
+                'billing_label': billing_label,
+                'afectacion_count': afectacion_count,
+                'afectacion_str': afectacion_str,
                 'id': dev.id # for url
             })
             
-        context['offline_list'] = offline_devices[:5] # Top 5
+        # Sort logic: 
+        # Primary: billing_priority (True > False) -> Reverse=True handles this? True=1, False=0. Yes.
+        # Secondary: downtime_seconds (Biggest > Smallest) -> Reverse=True
+        
+        offline_devices.sort(key=lambda x: (x['billing_priority'], x['downtime_seconds']), reverse=True)
+            
+        context['offline_list'] = offline_devices[:10] # Top 10
         context['total_monitored'] = Equipo.objects.count()
         context['total_down'] = len(raw_offline)
         
@@ -142,21 +238,12 @@ class EquipoListView(ListView):
         context = super().get_context_data(**kwargs)
         context['marcas'] = Marca.objects.all()
         context['tipos'] = TipoEquipo.objects.all() # For filter
+        context['porciones'] = Porcion.objects.all().order_by('nombre')
         context['total_active'] = Equipo.objects.filter(estado='ACTIVO').count()
         return context
 
     def get_queryset(self):
-        from django.db.models import Subquery, OuterRef, IntegerField
-        from django.db.models.functions import Cast
-        
-        # Subquery for latest latency
-        latest_latency = HistorialDisponibilidad.objects.filter(
-            equipo=OuterRef('pk')
-        ).order_by('-timestamp').values('latencia_ms')[:1]
-
-        qs = super().get_queryset().annotate(
-            last_latency=Cast(Subquery(latest_latency), output_field=IntegerField())
-        ).select_related('marca', 'tipo').order_by('id_equipo')
+        qs = super().get_queryset().select_related('marca', 'tipo').prefetch_related('medidores_asociados__porcion').order_by('id_equipo')
         
         # Filtering
         query = self.request.GET.get('q')
@@ -185,6 +272,10 @@ class EquipoListView(ListView):
                 qs = qs.filter(is_online=True)
             elif comunicacion == 'OFFLINE':
                 qs = qs.filter(is_online=False)
+
+        porcion_id = self.request.GET.get('porcion')
+        if porcion_id:
+            qs = qs.filter(medidores_asociados__porcion_id=porcion_id).distinct()
             
         return qs
         
@@ -216,6 +307,10 @@ class EquipoDetailView(DetailView):
     model = Equipo
     template_name = 'monitor/equipo_detail.html'
     context_object_name = 'equipo'
+
+    def get_queryset(self):
+        return super().get_queryset().prefetch_related('medidores_asociados__porcion')
+
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -652,7 +747,7 @@ class ImportEquiposView(View):
             # Check if this is confirmation step
             if request.POST.get('confirm_import') == 'true':
                 duplicate_action = request.POST.get('duplicate_action', 'skip')
-                created, updated, skipped, import_errors = self._execute_import_with_action(
+                stats = self._execute_import_with_action(
                     duplicates, new_records, errors, duplicate_action
                 )
                 
@@ -663,16 +758,10 @@ class ImportEquiposView(View):
                         os.unlink(temp_file)
                     del request.session['import_temp_file']
                 
-                # Show results
-                return render(request, 'monitor/import_equipos.html', {
-                    'form': EquipoImportForm(),
-                    'created_count': created,
-                    'updated_count': updated,
-                    'skipped_count': skipped,
-                    'error_count': len(import_errors),
-                    'errors': import_errors[:50],
-                    'total_errors': len(import_errors),
-                    'import_completed': True,
+                # Show summary page
+                return render(request, 'monitor/equipment_import_summary.html', {
+                    'stats': stats,
+                    'success': True
                 })
             
             # Store temp file path in session for confirmation
@@ -681,7 +770,7 @@ class ImportEquiposView(View):
             # If no duplicates found, execute immediately
             if not duplicates:
                 duplicate_action = 'skip'  # No duplicates to handle
-                created, updated, skipped, import_errors = self._execute_import_with_action(
+                stats = self._execute_import_with_action(
                     [], new_records, errors, duplicate_action
                 )
                 
@@ -689,13 +778,10 @@ class ImportEquiposView(View):
                 if os.path.exists(tmp_file_path):
                     os.unlink(tmp_file_path)
                 
-                return render(request, 'monitor/import_equipos.html', {
-                    'form': EquipoImportForm(),
-                    'created_count': created,
-                    'error_count': len(import_errors),
-                    'errors': import_errors[:50],
-                    'total_errors': len(import_errors),
-                    'import_completed': True,
+                # Show summary page
+                return render(request, 'monitor/equipment_import_summary.html', {
+                    'stats': stats,
+                    'success': True
                 })
             
             # Show preview with duplicates
@@ -830,6 +916,19 @@ class ImportEquiposView(View):
         skipped_count = 0
         errors = list(validation_errors)
         
+        # Track detailed lists
+        created_equipos = []
+        updated_equipos = []
+        rejected_equipos = []
+        
+        # Add validation errors to rejected list
+        for error in validation_errors:
+            rejected_equipos.append({
+                'row': error.get('row', 'N/A'),
+                'id_equipo': error.get('id_equipo', 'N/A'),
+                'reason': error.get('error', 'Error de validación')
+            })
+        
         # Process new records
         for record in new_records:
             try:
@@ -866,23 +965,54 @@ class ImportEquiposView(View):
                         permisos=equipo_data.get('permisos', False),
                     )
                     created_count += 1
+                    created_equipos.append({
+                        'id_equipo': equipo_data['id_equipo'],
+                        'ip': equipo_data['ip']
+                    })
             except Exception as e:
                 errors.append({'row': record['row'], 'error': f'Error al crear: {str(e)}'})
+                rejected_equipos.append({
+                    'row': record.get('row', 'N/A'),
+                    'id_equipo': equipo_data.get('id_equipo', 'N/A'),
+                    'reason': f'Error al crear: {str(e)}'
+                })
         
         # Process duplicates
         for duplicate in duplicates:
             try:
                 if duplicate_action == 'skip':
                     skipped_count += 1
+                    rejected_equipos.append({
+                        'row': duplicate.get('row', 'N/A'),
+                        'id_equipo': duplicate.get('id_equipo', 'N/A'),
+                        'reason': 'Equipo duplicado (omitido por el usuario)'
+                    })
                 elif duplicate_action == 'update':
                     with transaction.atomic():
                         existing = Equipo.objects.get(id_equipo=duplicate['id_equipo'])
                         self._merge_equipment_data(existing, duplicate['data'])
                         updated_count += 1
+                        updated_equipos.append({
+                            'id_equipo': duplicate['id_equipo'],
+                            'ip': existing.ip
+                        })
             except Exception as e:
                 errors.append({'row': duplicate['row'], 'error': f'Error al actualizar: {str(e)}'})
+                rejected_equipos.append({
+                    'row': duplicate.get('row', 'N/A'),
+                    'id_equipo': duplicate.get('id_equipo', 'N/A'),
+                    'reason': f'Error al actualizar: {str(e)}'
+                })
         
-        return created_count, updated_count, skipped_count, errors
+        # Return comprehensive statistics
+        return {
+            'created': len(created_equipos),
+            'updated': len(updated_equipos),
+            'rejected': len(rejected_equipos),
+            'created_equipos': created_equipos,
+            'updated_equipos': updated_equipos,
+            'rejected_equipos': rejected_equipos
+        }
     
     def _merge_equipment_data(self, existing_equipo, import_data):
         """Merge import data preserving existing values when import is empty."""
@@ -1934,7 +2064,8 @@ class CalendarioView(TemplateView):
                 'nombre': evento.get_display_name(),
                 'color': evento.get_color(),
                 'tipo': evento.tipo_evento,
-                'porcion': evento.porcion.nombre
+                'porcion': evento.porcion.nombre,
+                'porcion_id': evento.porcion.id
             })
         
         context['eventos_por_dia'] = eventos_por_dia
@@ -2123,7 +2254,7 @@ class MedidorListView(ListView):
     paginate_by = 50
     
     def get_queryset(self):
-        qs = super().get_queryset().select_related('porcion')
+        qs = super().get_queryset().select_related('porcion', 'colector')
         
         # Filter by marca if specified
         marca = self.request.GET.get('marca')
@@ -2140,15 +2271,34 @@ class MedidorListView(ListView):
         if search:
             qs = qs.filter(numero__icontains=search)
         
+        # Filter by colector if specified
+        colector_filter = self.request.GET.get('colector')
+        if colector_filter:
+            colector_filter = colector_filter.strip()
+            if colector_filter.lower() == 'sin_asignar':
+                qs = qs.filter(colector__isnull=True)
+            elif colector_filter:
+                # Look up colector by id_equipo
+                qs = qs.filter(colector__id_equipo=colector_filter)
+        
         return qs.order_by('numero')
     
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         context['marca_filter'] = self.request.GET.get('marca', '')
         context['porcion_filter'] = self.request.GET.get('porcion', '')
+        context['colector_filter'] = self.request.GET.get('colector', '')
         context['search_query'] = self.request.GET.get('q', '')
         context['porciones'] = Porcion.objects.all().order_by('nombre')
         context['marcas'] = Medidor.MARCA_CHOICES
+        context['colectores'] = Equipo.objects.all().order_by('id_equipo')
+        
+        # Get brand colors from Marca model for dynamic badge coloring
+        from .models import Marca
+        marca_colors = {}
+        for marca in Marca.objects.all():
+            marca_colors[marca.nombre.upper()] = marca.color
+        context['marca_colors'] = marca_colors
         
         # Count statistics
         total = Medidor.objects.count()
@@ -2185,6 +2335,87 @@ class MedidorListView(ListView):
         }
         
         return context
+
+@method_decorator(login_required, name='dispatch')
+class ExportMedidoresView(View):
+    """View to export filtered medidores to XLSX."""
+    
+    def get(self, request, *args, **kwargs):
+        # 1. Base QuerySet
+        qs = Medidor.objects.select_related('porcion', 'colector').all()
+        
+        # 2. Apply Filters (same logic as MedidorListView)
+        
+        # Filter by marca
+        marca = request.GET.get('marca')
+        if marca:
+            qs = qs.filter(marca=marca)
+        
+        # Filter by porcion
+        porcion_id = request.GET.get('porcion')
+        if porcion_id:
+            qs = qs.filter(porcion_id=porcion_id)
+        
+        # Search by numero
+        search = request.GET.get('q')
+        if search:
+            qs = qs.filter(numero__icontains=search)
+        
+        # Filter by colector
+        colector_filter = request.GET.get('colector')
+        if colector_filter:
+            colector_filter = colector_filter.strip()
+            if colector_filter.lower() == 'sin_asignar':
+                qs = qs.filter(colector__isnull=True)
+            elif colector_filter:
+                qs = qs.filter(colector__id_equipo=colector_filter)
+        
+        qs = qs.order_by('numero')
+        
+        # 3. Prepare Data for DataFrame
+        data = []
+        for medidor in qs:
+            data.append({
+                'Número de Medidor': medidor.numero,
+                'Marca': medidor.get_marca_display(),
+                'Porción': medidor.porcion.nombre if medidor.porcion else '',
+                'Tipo Porción': medidor.porcion.get_tipo_display() if medidor.porcion else '',
+                'Colector Asociado': medidor.colector.id_equipo if medidor.colector else 'Sin asignar',
+                'IP Colector': medidor.colector.ip if medidor.colector else '',
+                'Estado Colector': 'Online' if (medidor.colector and medidor.colector.is_online) else 'Offline' if medidor.colector else ''
+            })
+            
+        # 4. Create DataFrame and Export
+        if not data:
+            data = [{
+                'Número de Medidor': '',
+                'Marca': '',
+                'Porción': '',
+                'Tipo Porción': '',
+                'Colector Asociado': '',
+                'IP Colector': '',
+                'Estado Colector': ''
+            }] # Provide header at least
+
+        df = pd.DataFrame(data)
+        if not data[0]['Número de Medidor']: # If dummy data
+             df = pd.DataFrame(columns=data[0].keys())
+
+        response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+        response['Content-Disposition'] = 'attachment; filename=medidores_export.xlsx'
+        
+        with pd.ExcelWriter(response, engine='openpyxl') as writer:
+            df.to_excel(writer, index=False, sheet_name='Medidores')
+            
+            # Auto-adjust columns width
+            worksheet = writer.sheets['Medidores']
+            for column in df:
+                # Find max length of column content or column header
+                column_length = max(df[column].astype(str).map(len).max(), len(column)) if not df.empty else len(column)
+                col_letter = openpyxl.utils.get_column_letter(df.columns.get_loc(column) + 1)
+                worksheet.column_dimensions[col_letter].width = column_length + 2
+                
+        return response
 
 
 @admin_required_method
@@ -2232,21 +2463,20 @@ class ImportMedidoresView(View):
                 return redirect('import_medidores')
             
             logger.info("Starting data import...")
-            # Import data (delete existing and create new)
-            imported_count = self._import_data(processed_data)
-            logger.info(f"Imported {imported_count} medidores")
+            # Import data (delete existing and create new) - returns statistics dict
+            stats = self._import_data(processed_data)
+            logger.info(f"Import complete: {stats['imported']} imported, {stats['rejected_by_marca']['total']} rejected")
             
             logger.info("Updating porcion descriptions...")
             # Update porcion descriptions
             self._update_porcion_descriptions()
             logger.info("Porcion descriptions updated successfully")
             
-            messages.success(
-                request,
-                f'Importación exitosa: {imported_count} medidores importados. '
-                f'Las descripciones de las porciones han sido actualizadas.'
-            )
-            return redirect('medidor_list')
+            # Render summary page with comprehensive statistics
+            return render(request, 'monitor/import_summary.html', {
+                'stats': stats,
+                'success': True
+            })
             
         except ValueError as e:
             logger.error(f"ValueError during import: {str(e)}")
@@ -2349,16 +2579,78 @@ class ImportMedidoresView(View):
     
     @transaction.atomic
     def _import_data(self, processed_data):
-        """Delete all existing data and import new data."""
-        # Delete all existing medidores
+        """
+        Import medidor data and return comprehensive statistics.
+        
+        Returns dict with:
+            - total_before: Count before import
+            - total_after: Count after import
+            - imported: Successfully imported
+            - new_medidores: List of new medidor numbers
+            - deleted_medidores: List of deleted medidor numbers
+            - changed_cycle: List of dicts with numero, old_porcion, new_porcion
+            - rejected_by_marca: Dict with total and breakdown by marca
+        """
+        # 1. Capture snapshot of existing medidores BEFORE deletion
+        old_medidores = {}
+        for m in Medidor.objects.select_related('porcion').all():
+            old_medidores[m.numero] = {
+                'marca': m.marca,
+                'porcion_nombre': m.porcion.nombre if m.porcion else None
+            }
+        
+        total_before = len(old_medidores)
+        
+        # 2. Create lookup of new data for comparison
+        new_data_lookup = {rec['numero']: rec for rec in processed_data}
+        
+        # 3. Identify changes before deletion
+        new_medidores_list = []
+        deleted_medidores_list = []
+        changed_cycle_list = []
+        
+        # New medidores: in new data but not in old
+        for numero in new_data_lookup.keys():
+            if numero not in old_medidores:
+                new_medidores_list.append(numero)
+        
+        # Deleted medidores: in old but not in new data
+        for numero in old_medidores.keys():
+            if numero not in new_data_lookup:
+                deleted_medidores_list.append(numero)
+        
+        # Changed cycle: in both but different porcion
+        for numero in old_medidores.keys():
+            if numero in new_data_lookup:
+                old_porcion = old_medidores[numero]['porcion_nombre']
+                new_porcion = new_data_lookup[numero]['porcion']
+                if old_porcion != new_porcion:
+                    changed_cycle_list.append({
+                        'numero': numero,
+                        'old_porcion': old_porcion,
+                        'new_porcion': new_porcion
+                    })
+        
+        # 4. Delete all existing medidores
         Medidor.objects.all().delete()
         
-        # Create new medidores
+        # 5. Import new medidores with validation
         imported_count = 0
-        errors = []
+        rejected_by_marca = {}
+        rejected_total = 0
         
         for record in processed_data:
             try:
+                # Validate that marca exists in database (case-insensitive) - DO NOT CREATE
+                marca_nombre = record['marca']
+                marca = Marca.objects.filter(nombre__iexact=marca_nombre).first()
+                
+                if not marca:
+                    # Track rejection by marca
+                    rejected_by_marca[marca_nombre] = rejected_by_marca.get(marca_nombre, 0) + 1
+                    rejected_total += 1
+                    continue
+                
                 # Find or create porcion (case-insensitive)
                 porcion_nombre = record['porcion']
                 porcion = Porcion.objects.filter(nombre__iexact=porcion_nombre).first()
@@ -2368,23 +2660,35 @@ class ImportMedidoresView(View):
                         tipo='MASIVO'  # Default type
                     )
                 
-                # Create medidor
+                # Create medidor with validated marca
                 Medidor.objects.create(
                     numero=record['numero'],
-                    marca=record['marca'],
+                    marca=marca_nombre,
                     porcion=porcion
                 )
                 imported_count += 1
                 
             except Exception as e:
-                errors.append(f"Error en medidor {record.get('numero', 'N/A')}: {str(e)}")
+                import logging
+                logger = logging.getLogger(__name__)
+                logger.error(f"Error creating medidor {record.get('numero', 'N/A')}: {str(e)}")
                 continue
         
-        if errors:
-            # Log errors (could be enhanced with proper logging)
-            print(f"Errors during import: {errors[:10]}")  # Show first 10 errors
+        total_after = Medidor.objects.count()
         
-        return imported_count
+        # 6. Return comprehensive statistics
+        return {
+            'total_before': total_before,
+            'total_after': total_after,
+            'imported': imported_count,
+            'new_medidores': new_medidores_list,
+            'deleted_medidores': deleted_medidores_list,
+            'changed_cycle': changed_cycle_list,
+            'rejected_by_marca': {
+                'total': rejected_total,
+                'by_marca': rejected_by_marca
+            }
+        }
     
     def _update_porcion_descriptions(self):
         """Update all porcion descriptions with meter counts by brand."""
@@ -2427,3 +2731,328 @@ class ImportMedidoresView(View):
             
             porcion.save()
 
+
+# ==================== COLLECTOR ASSOCIATION IMPORT ====================
+
+@admin_required_method
+class ImportColectoresView(View):
+    """View to import medidor-collector associations from XLSX files."""
+    
+    def get(self, request):
+        return render(request, 'monitor/import_colectores.html')
+    
+    def post(self, request):
+        import logging
+        import traceback
+        logger = logging.getLogger(__name__)
+        
+        if 'file' not in request.FILES:
+            messages.error(request, 'No se ha seleccionado ningún archivo.')
+            return redirect('import_colectores')
+        
+        xlsx_file = request.FILES['file']
+        
+        # Validate file extension
+        if not xlsx_file.name.endswith(('.xlsx', '.xls')):
+            messages.error(request, 'El archivo debe ser formato XLSX o XLS.')
+            return redirect('import_colectores')
+        
+        try:
+            # Process XLSX file
+            df = pd.read_excel(xlsx_file, header=None)
+            
+            # Extract first two columns (Colector, Medidor)
+            if df.shape[1] < 2:
+                messages.error(request, 'El archivo debe tener al menos 2 columnas.')
+                return redirect('import_colectores')
+            
+            # Extract columns
+            data = df[[0, 1]].copy()  # Column 0 = Colector ID, Column 1 = Medidor número
+            data.columns = ['colector_id', 'medidor_numero']
+            
+            # Remove header row if present
+            if len(data) > 0 and data.iloc[0]['colector_id'] and isinstance(data.iloc[0]['colector_id'], str):
+                if not str(data.iloc[0]['colector_id']).replace('.', '').replace('-', '').replace('_', '').isalnum():
+                    data = data.iloc[1:]
+            
+            # Remove empty rows
+            data = data.dropna(subset=['colector_id', 'medidor_numero'])
+            
+            # Convert to string and clean
+            data['colector_id'] = data['colector_id'].astype(str).str.strip()
+            data['medidor_numero'] = data['medidor_numero'].astype(str).str.strip()
+            
+            # Remove empty rows again after conversion
+            data = data[data['colector_id'] != '']
+            data = data[data['medidor_numero'] != '']
+            
+            # Remove duplicates (keep last occurrence for same medidor)
+            data = data.drop_duplicates(subset=['medidor_numero'], keep='last')
+            
+            # Import associations
+            stats = self._import_associations(data)
+            
+            return render(request, 'monitor/import_colectores_summary.html', {
+                'stats': stats
+            })
+            
+        except Exception as e:
+            logger.error(f"Error processing file: {str(e)}")
+            logger.error(traceback.format_exc())
+            messages.error(request, f'Error al procesar el archivo: {str(e)}')
+            return redirect('import_colectores')
+    
+    @transaction.atomic
+    def _import_associations(self, data):
+        """
+        Import medidor-collector associations and return statistics.
+        
+        Returns dict with:
+            - created: New associations
+            - updated: Changed associations
+            - rejected_no_medidor: Medidor doesn't exist
+            - rejected_no_colector: Colector doesn't exist
+            - rejected_total: Total rejected
+            - sin_colector: Medidores without association
+            - total_processed: Total rows processed
+        """
+        created = 0
+        updated = 0
+        rejected_no_medidor = 0
+        rejected_no_colector = 0
+        
+        for _, row in data.iterrows():
+            colector_id = row['colector_id']
+            medidor_numero = row['medidor_numero']
+            
+            # Check if medidor exists
+            try:
+                medidor = Medidor.objects.get(numero=medidor_numero)
+            except Medidor.DoesNotExist:
+                rejected_no_medidor += 1
+                continue
+            
+            # Check if colector exists
+            try:
+                colector = Equipo.objects.get(id_equipo=colector_id)
+            except Equipo.DoesNotExist:
+                rejected_no_colector += 1
+                continue
+            
+            # Check if association needs to be created or updated
+            if medidor.colector is None:
+                # Create new association
+                medidor.colector = colector
+                medidor.save()
+                created += 1
+            elif medidor.colector.id != colector.id:
+                # Update existing association
+                medidor.colector = colector
+                medidor.save()
+                updated += 1
+            # If already associated to the same colector, do nothing
+        
+        # Count medidores without colector
+        sin_colector = Medidor.objects.filter(colector__isnull=True).count()
+        
+        rejected_total = rejected_no_medidor + rejected_no_colector
+        total_processed = created + updated + rejected_total
+        
+        return {
+            'created': created,
+            'updated': updated,
+            'rejected_no_medidor': rejected_no_medidor,
+            'rejected_no_colector': rejected_no_colector,
+            'rejected_total': rejected_total,
+            'sin_colector': sin_colector,
+            'total_processed': total_processed,
+        }
+
+
+import json
+from django.http import JsonResponse
+
+
+@login_required_method
+class MapaView(TemplateView):
+    """Vista de mapa interactivo con equipos y su estado."""
+    template_name = 'monitor/mapa.html'
+    
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        
+        # Get filter parameters
+        marca_filter = self.request.GET.get('marca', '')
+        medio_filter = self.request.GET.get('medio', '')
+        estado_filter = self.request.GET.get('estado', '')
+        porcion_filter = self.request.GET.get('porcion', '')
+        
+        # Guayaquil bounds
+        GUAYAQUIL_BOUNDS = {
+            'min_lat': -2.35,
+            'max_lat': -1.95,
+            'min_lng': -80.15,
+            'max_lng': -79.65
+        }
+        
+        # Filter equipos with valid coordinates within Guayaquil
+        equipos = Equipo.objects.filter(
+            latitud__isnull=False,
+            longitud__isnull=False,
+            latitud__gte=GUAYAQUIL_BOUNDS['min_lat'],
+            latitud__lte=GUAYAQUIL_BOUNDS['max_lat'],
+            longitud__gte=GUAYAQUIL_BOUNDS['min_lng'],
+            longitud__lte=GUAYAQUIL_BOUNDS['max_lng']
+        ).select_related('marca', 'tipo')
+        
+        # Apply filters
+        if marca_filter:
+            equipos = equipos.filter(marca_id=marca_filter)
+        
+        if medio_filter:
+            equipos = equipos.filter(medio_comunicacion=medio_filter)
+        
+        if estado_filter:
+            if estado_filter == 'ONLINE':
+                equipos = equipos.filter(is_online=True)
+            elif estado_filter == 'OFFLINE':
+                equipos = equipos.filter(is_online=False)
+
+        if porcion_filter:
+            equipos = equipos.filter(medidores_asociados__porcion_id=porcion_filter).distinct()
+        
+        # Serialize equipos to JSON
+        equipos_data = []
+        for equipo in equipos:
+            # Determine marker color based on is_online status
+            color = 'green' if equipo.is_online else 'red'
+            estado_text = 'Online' if equipo.is_online else 'Offline'
+            
+            equipos_data.append({
+                'id': equipo.id,
+                'id_equipo': equipo.id_equipo,
+                'ip': equipo.ip,
+                'lat': float(equipo.latitud),
+                'lng': float(equipo.longitud),
+                'color': color,
+                'estado': estado_text,
+                'marca': equipo.marca.nombre if equipo.marca else 'N/A',
+                'tipo': equipo.tipo.nombre if equipo.tipo else 'N/A',
+                'comunicacion': equipo.get_medio_comunicacion_display(),
+                'direccion': equipo.direccion or 'N/A',
+                'poste': equipo.poste or 'N/A',
+            })
+        
+        context['equipos_json'] = json.dumps(equipos_data)
+        context['marcas'] = Marca.objects.all()
+        context['marca_filter'] = marca_filter
+        context['medio_filter'] = medio_filter
+        context['estado_filter'] = estado_filter
+        context['porcion_filter'] = porcion_filter
+        context['porciones'] = Porcion.objects.all().order_by('nombre')
+        context['total_equipos'] = len(equipos_data)
+        
+        return context
+
+
+class ReporteFacturacionView(TemplateView):
+    template_name = 'monitor/reporte_facturacion.html'
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        from .models import EventoFacturacion, Medidor, HistorialDisponibilidad, Equipo
+        from django.db.models import Count, Q, Subquery, OuterRef
+        from django.utils import timezone
+        import datetime
+        
+        # Get Month/Year filter or default to current
+        now = timezone.now()
+        try:
+            mes = int(self.request.GET.get('mes', now.month))
+            anio = int(self.request.GET.get('anio', now.year))
+        except (ValueError, TypeError):
+            mes = now.month
+            anio = now.year
+
+        context['mes'] = mes
+        context['anio'] = anio
+        
+        # Navigation
+        if mes == 1:
+            context['prev_mes'] = 12
+            context['prev_anio'] = anio - 1
+        else:
+            context['prev_mes'] = mes - 1
+            context['prev_anio'] = anio
+            
+        if mes == 12:
+            context['next_mes'] = 1
+            context['next_anio'] = anio + 1
+        else:
+            context['next_mes'] = mes + 1
+            context['next_anio'] = anio
+
+        # Month Name in Spanish
+        meses = {
+            1: 'Enero', 2: 'Febrero', 3: 'Marzo', 4: 'Abril',
+            5: 'Mayo', 6: 'Junio', 7: 'Julio', 8: 'Agosto',
+            9: 'Septiembre', 10: 'Octubre', 11: 'Noviembre', 12: 'Diciembre'
+        }
+        context['mes_nombre'] = meses.get(mes, '')
+
+        # Get Billing Events for this month (FACTURACION only)
+        events = EventoFacturacion.objects.filter(
+            fecha__year=anio,
+            fecha__month=mes,
+            tipo_evento='FACTURACION'
+        ).select_related('porcion').order_by('fecha')
+        
+        # Brands Header
+        brand_headers = [{'id': c[0], 'name': c[1]} for c in Medidor.MARCA_CHOICES]
+        context['brand_headers'] = brand_headers
+        
+        report_data = []
+        dates = sorted(list(set(e.fecha for e in events)))
+        
+        for d in dates:
+            day_events = [e for e in events if e.fecha == d]
+            portions = [e.porcion for e in day_events]
+            
+            # Subquery for last failure
+            last_failure = HistorialDisponibilidad.objects.filter(
+                equipo=OuterRef('pk'),
+                estado='OFFLINE'
+            ).order_by('-timestamp').values('timestamp')[:1]
+
+            qs = Equipo.objects.filter(
+                medidores_asociados__porcion__in=portions
+            ).distinct().annotate(
+                total_medidores=Count('medidores_asociados', distinct=True),
+                last_failure_time=Subquery(last_failure)
+            )
+            
+            # Dynamic annotations for brands
+            annotations = {}
+            for code, name in Medidor.MARCA_CHOICES:
+                annotations[f'count_{code}'] = Count('medidores_asociados', filter=Q(medidores_asociados__marca=code))
+            
+            qs = qs.annotate(**annotations).select_related('marca', 'tipo')
+            
+            equipos_list = []
+            for eq in qs:
+                # Process annotations into a list for template iteration
+                branding_counts = []
+                for code, name in Medidor.MARCA_CHOICES:
+                    val = getattr(eq, f'count_{code}', 0)
+                    branding_counts.append(val)
+                eq.brand_counts_list = branding_counts
+                equipos_list.append(eq)
+                
+            report_data.append({
+                'date': d,
+                'portions': portions,
+                'equipments': equipos_list
+            })
+            
+        context['report_data'] = report_data
+        return context

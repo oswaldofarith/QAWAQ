@@ -12,12 +12,14 @@ urlpatterns = [
     path('equipos/import/template/', views.DownloadImportTemplateView.as_view(), name='download_import_template'),
     path('reportes/', views.ReporteView.as_view(), name='reportes'),
     path('reportes/exportar/', views_export.ExportReportView.as_view(), name='export_report'),
+    path('reportes/facturacion/', views.ReporteFacturacionView.as_view(), name='reporte_facturacion'),
     path('reportes/individual/', views.ReporteIndividualView.as_view(), name='reporte_individual'),
     path('reportes/individual/exportar/', views_export.ExportIndividualReportView.as_view(), name='export_individual_report'),
     path('equipos/<int:pk>/ping/', views.PingDeviceView.as_view(), name='ping_device'),
     path('equipos/<int:pk>/ping-modal/', views.PingModalView.as_view(), name='ping_modal'),
     path('equipos/<int:pk>/ping-tool/', views.PingToolView.as_view(), name='ping_tool'),
     path('search/', views.GlobalSearchView.as_view(), name='global_search'),
+    path('mapa/', views.MapaView.as_view(), name='mapa'),
     
     # Authentication
     path('login/', views.LoginView.as_view(), name='login'),
@@ -62,5 +64,7 @@ urlpatterns = [
     
     # Medidores
     path('medidores/', views.MedidorListView.as_view(), name='medidor_list'),
+    path('medidores/exportar/', views.ExportMedidoresView.as_view(), name='export_medidores'),
     path('medidores/importar/', views.ImportMedidoresView.as_view(), name='import_medidores'),
+    path('medidores/importar-colectores/', views.ImportColectoresView.as_view(), name='import_colectores'),
 ]

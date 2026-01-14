@@ -18,6 +18,9 @@
                 <a class="nav-link active bg-transparent text-primary border-primary border-top-0 border-end-0 border-start-0 border-bottom-2 fw-bold"
                     href="#" style="border-bottom-width: 2px !important;">Reporte Individual</a>
             </li>
+            <li class="nav-item">
+                <a class="nav-link text-secondary bg-transparent border-0" href="{% url 'reporte_facturacion' %}">Facturación</a>
+            </li>
         </ul>
 
         <!-- Date Range (Linked to Form) -->
@@ -136,7 +139,15 @@
     <div class="col-12">
         <div class="card-dashboard p-4">
             <h5 class="text-white mb-4">Gráfico de Disponibilidad</h5>
-            <div id="availabilityChart" style="height: 300px;"></div>
+            <div id="availabilityChart" style="height: 300px; position: relative;">
+                <!-- Loading spinner -->
+                <div id="chartLoadingSpinner" style="position: absolute; top: 0; left: 0; right: 0; bottom: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; background-color: var(--bg-card); z-index: 10;">
+                    <div class="spinner-border text-primary" role="status" style="width: 3rem; height: 3rem;">
+                        <span class="visually-hidden">Cargando gráfico...</span>
+                    </div>
+                    <p class="text-secondary mt-3 mb-0">Cargando gráfico de disponibilidad...</p>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -236,8 +247,20 @@
                 }
             };
             var chart = new ApexCharts(document.querySelector("#availabilityChart"), options);
+            
+            // Remove loading spinner before rendering
+            const spinner = document.getElementById('chartLoadingSpinner');
+            if (spinner) {
+                spinner.remove();
+            }
+            
             chart.render();
         } else {
+            // Remove loading spinner and show no data message
+            const spinner = document.getElementById('chartLoadingSpinner');
+            if (spinner) {
+                spinner.remove();
+            }
             document.querySelector("#availabilityChart").innerHTML =
                 '<div class="h-100 d-flex align-items-center justify-content-center text-muted">No hay datos para mostrar</div>';
         }

@@ -1,0 +1,65 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block header_title %}Importar Colectores Asociados{% endblock %}
+{% block header_subtitle %}Asociar medidores con sus equipos colectores{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <i class="bi bi-link-45deg text-primary"></i> Importar Asociaciones Medidor-Colector
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="alert alert-info">
+                    <h6><i class="bi bi-info-circle"></i> Instrucciones</h6>
+                    <ul class="mb-0">
+                        <li>El archivo debe ser formato <strong>XLSX o XLS</strong></li>
+                        <li><strong>Columna 1:</strong> ID del Equipo Colector (debe existir en QAWAQ)</li>
+                        <li><strong>Columna 2:</strong> Número del Medidor (debe existir en QAWAQ)</li>
+                        <li>Otras columnas serán ignoradas</li>
+                        <li>Solo se importarán asociaciones donde tanto el colector como el medidor existan</li>
+                        <li>Un medidor solo puede estar asociado a un colector</li>
+                    </ul>
+                </div>
+
+                <form method="post" enctype="multipart/form-data" id="importForm">
+                    {% csrf_token %}
+                    <div class="mb-3">
+                        <label for="file" class="form-label">Seleccionar Archivo</label>
+                        <input type="file" class="form-control" id="file" name="file" accept=".xlsx,.xls" required>
+                    </div>
+
+                    <div class="d-flex gap-2">
+                        <button type="submit" class="btn btn-primary" id="submitBtn">
+                            <i class="bi bi-upload"></i> Importar Asociaciones
+                        </button>
+                        <a href="{% url 'medidor_list' %}" class="btn btn-outline-secondary">
+                            <i class="bi bi-x-circle"></i> Cancelar
+                        </a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const form = document.getElementById('importForm');
+        const submitBtn = document.getElementById('submitBtn');
+        const originalBtnContent = submitBtn.innerHTML;
+
+        form.addEventListener('submit', function() {
+            // Disable button and show spinner
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Importando...';
+        });
+    });
+</script>
+{% endblock %}

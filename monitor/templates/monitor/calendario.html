@@ -100,12 +100,13 @@
                                     {% if day in eventos_por_dia %}
                                         <div class="d-flex flex-column gap-1">
                                             {% for evento in eventos_por_dia|get_item:day %}
-                                                <div class="badge text-white text-truncate" 
-                                                     style="background-color: {{ evento.color }}; font-size: 1.05rem;"
-                                                     title="{{ evento.nombre }}"
-                                                     data-bs-toggle="tooltip">
-                                                    {{ evento.porcion }}
-                                                </div>
+                                                <a href="{% url 'equipo_list' %}?porcion={{ evento.porcion_id }}" class="text-decoration-none d-block">
+                                                    <div class="badge text-white text-truncate w-100" 
+                                                         style="background-color: {{ evento.color }}; font-size: 1.05rem;"
+                                                         title="{{ evento.nombre }}">
+                                                        {{ evento.porcion }}
+                                                    </div>
+                                                </a>
                                             {% endfor %}
                                         </div>
                                     {% endif %}

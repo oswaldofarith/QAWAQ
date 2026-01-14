@@ -1,0 +1,157 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load monitor_extras %}
+
+{% block header_title %}Resumen de Importación de Medidores{% endblock %}
+{% block header_subtitle %}Resultados del proceso de importación{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Summary Cards -->
+    <div class="row mb-4">
+        <!-- Before/After Card -->
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-body">
+                    <h5 class="card-title"><i class="bi bi-bar-chart-fill"></i> Totales</h5>
+                    <div class="row text-center">
+                        <div class="col-6">
+                            <h2 class="text-muted">{{ stats.total_before|default:0|thousands_dot }}</h2>
+                            <p class="text-muted mb-0">Antes</p>
+                        </div>
+                        <div class="col-6">
+                            <h2 class="text-primary">{{ stats.total_after|default:0|thousands_dot }}</h2>
+                            <p class="text-muted mb-0">Después</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Imported Card -->
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-body">
+                    <h5 class="card-title"><i class="bi bi-check-circle-fill text-success"></i> Importados Exitosamente</h5>
+                    <h2 class="text-success">{{ stats.imported|default:0|thousands_dot }}</h2>
+                    <p class="text-muted mb-0">Medidores creados en el sistema</p>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Change Statistics -->
+    <div class="row mb-4">
+        <div class="col-md-4">
+            <div class="card border-success">
+                <div class="card-body">
+                    <h6 class="card-title"><i class="bi bi-plus-circle text-success"></i> Nuevos</h6>
+                    <h3 class="text-success">{{ stats.new_medidores|length|default:0|thousands_dot }}</h3>
+                    <p class="text-muted small mb-0">No estaban en el sistema anterior</p>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-4">
+            <div class="card border-danger">
+                <div class="card-body">
+                    <h6 class="card-title"><i class="bi bi-trash text-danger"></i> Eliminados</h6>
+                    <h3 class="text-danger">{{ stats.deleted_medidores|length|default:0|thousands_dot }}</h3>
+                    <p class="text-muted small mb-0">Estaban antes pero ya no</p>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-4">
+            <div class="card border-warning">
+                <div class="card-body">
+                    <h6 class="card-title"><i class="bi bi-arrow-left-right text-warning"></i> Cambiaron de Ciclo</h6>
+                    <h3 class="text-warning">{{ stats.changed_cycle|length|default:0|thousands_dot }}</h3>
+                    <p class="text-muted small mb-0">Cambiaron su porción asignada</p>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Changed Cycle Table -->
+    {% if stats.changed_cycle %}
+    <div class="card mb-4">
+        <div class="card-header">
+            <h5 class="mb-0"><i class="bi bi-arrow-left-right"></i> Medidores que Cambiaron de Ciclo</h5>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-sm table-hover">
+                    <thead>
+                        <tr>
+                            <th>Número</th>
+                            <th>Ciclo Anterior</th>
+                            <th></th>
+                            <th>Ciclo Nuevo</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for item in stats.changed_cycle %}
+                        <tr>
+                            <td class="font-monospace">{{ item.numero }}</td>
+                            <td><span class="badge bg-secondary">{{ item.old_porcion }}</span></td>
+                            <td><i class="bi bi-arrow-right"></i></td>
+                            <td><span class="badge bg-primary">{{ item.new_porcion }}</span></td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+    
+    <!-- Rejected by Marca -->
+    {% if stats.rejected_by_marca.total > 0 %}
+    <div class="card mb-4 border-danger">
+        <div class="card-header bg-danger text-white">
+            <h5 class="mb-0"><i class="bi bi-x-circle"></i> Rechazados por Marca No Existente</h5>
+        </div>
+        <div class="card-body">
+            <p class="mb-3">
+                <strong>Total:</strong> <span class="badge bg-danger fs-6">{{ stats.rejected_by_marca.total|thousands_dot }}</span> medidores no fueron importados porque su marca no está registrada en el sistema.
+            </p>
+            <p class="text-muted small">Para importar estos medidores, primero debe crear las siguientes marcas en <a href="{% url 'marca_list' %}">Configuración → Marcas</a>:</p>
+            
+            <div class="table-responsive">
+                <table class="table table-sm">
+                    <thead>
+                        <tr>
+                            <th>Marca</th>
+                            <th class="text-end">Cantidad Rechazada</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for marca, count in stats.rejected_by_marca.by_marca.items %}
+                        <tr>
+                            <td><strong>{{ marca }}</strong></td>
+                            <td class="text-end"><span class="badge bg-danger">{{ count|thousands_dot }}</span></td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+    
+    <!-- Actions -->
+    <div class="row">
+        <div class="col-md-12">
+            <div class="d-flex gap-2">
+                <a href="{% url 'medidor_list' %}" class="btn btn-primary">
+                    <i class="bi bi-list"></i> Ver Lista de Medidores
+                </a>
+                <a href="{% url 'import_medidores' %}" class="btn btn-outline-secondary">
+                    <i class="bi bi-upload"></i> Importar Nuevo Archivo
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

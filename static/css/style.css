@@ -39,7 +39,79 @@ body {
 .sidebar {
     background-color: var(--bg-sidebar);
     border-right: 1px solid var(--border-color);
-    transition: background-color 0.3s, border-color 0.3s;
+    width: 250px;
+    transition: width 0.3s ease, background-color 0.3s, border-color 0.3s;
+    position: relative;
+    min-height: 100vh;
+}
+
+.sidebar.collapsed {
+    width: 80px;
+}
+
+/* Toggle button - hamburger menu */
+.sidebar-toggle-btn {
+    transition: transform 0.3s ease;
+}
+
+.sidebar-toggle-btn:hover {
+    transform: scale(1.1);
+    color: var(--accent-blue) !important;
+}
+
+.sidebar.collapsed .sidebar-toggle-btn {
+    display: none;
+}
+
+/* Expand button (visible when collapsed) */
+.sidebar-expand-btn {
+    position: absolute;
+    top: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 1000;
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    font-size: 1.5rem;
+}
+
+/* Hide text when collapsed */
+.sidebar.collapsed .nav-link span,
+.sidebar.collapsed h5,
+.sidebar.collapsed small,
+.sidebar.collapsed .flex-grow-1,
+.sidebar.collapsed .dropdown-toggle::after {
+    opacity: 0;
+    width: 0;
+    overflow: hidden;
+    display: none;
+}
+
+/* Adjust icons and layout when collapsed */
+.sidebar.collapsed .nav-link {
+    justify-content: center;
+    padding: 0.75rem 0.5rem;
+}
+
+.sidebar.collapsed .nav-link i {
+    margin-right: 0;
+}
+
+.sidebar.collapsed .px-3 {
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+    text-align: center;
+}
+
+.sidebar.collapsed .dropdown-menu {
+    position: absolute !important;
+    left: 100% !important;
+    top: 0 !important;
 }
 
 .sidebar .nav-link {
@@ -48,6 +120,8 @@ body {
     margin-bottom: 0.5rem;
     border-radius: 0.5rem;
     transition: all 0.2s;
+    display: flex;
+    align-items: center;
 }
 
 .sidebar .nav-link:hover,
@@ -64,6 +138,7 @@ body {
 
 .sidebar .nav-link i {
     margin-right: 0.75rem;
+    transition: margin-right 0.3s;
 }
 
 /* Cards */
@@ -188,4 +263,17 @@ body {
     background-color: #f3f4f6 !important;
     color: var(--text-secondary) !important;
     border-color: var(--border-light) !important;
+}
+
+/* Sidebar collapsed layout overrides */
+body.sidebar-collapsed #sidebarMenu {
+    width: 80px !important;
+    flex: 0 0 80px !important;
+    max-width: 80px !important;
+}
+
+body.sidebar-collapsed main {
+    width: calc(100% - 80px) !important;
+    flex: 0 0 calc(100% - 80px) !important;
+    max-width: 100% !important;
 }

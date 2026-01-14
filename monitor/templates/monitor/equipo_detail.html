@@ -112,6 +112,25 @@ atrás{% endblock %}
                     </div>
                 </div>
 
+
+
+                <!-- Row 5: Portions -->
+                <div class="col-12 border-top border-secondary border-opacity-25 pt-3 mt-3">
+                    <label class="text-secondary small text-uppercase fw-bold mb-2">PORCIONES QUE AFECTA</label>
+                    {% load monitor_extras %}
+                    <div class="d-flex flex-wrap gap-2">
+                        {% for porcion in equipo.medidores_asociados.all|unique_portions %}
+                            {% if porcion.tipo == 'MASIVO' %}
+                            <span class="badge bg-danger bg-opacity-10 text-danger border border-danger border-opacity-25 rounded-pill">{{ porcion.nombre }}</span>
+                            {% else %}
+                            <span class="badge bg-primary bg-opacity-10 text-primary border border-primary border-opacity-25 rounded-pill">{{ porcion.nombre }}</span>
+                            {% endif %}
+                        {% empty %}
+                            <span class="text-muted small">No hay porciones asociadas</span>
+                        {% endfor %}
+                    </div>
+                </div>
+
             </div>
         </div>
     </div>

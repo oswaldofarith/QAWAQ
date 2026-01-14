@@ -33,6 +33,8 @@
         const savedTheme = localStorage.getItem('theme') || 'dark';
         document.documentElement.setAttribute('data-bs-theme', savedTheme);
     </script>
+    
+    {% block extra_head %}{% endblock %}
 </head>
 
 <body>
@@ -40,50 +42,65 @@
         <div class="row">
             <!-- Sidebar -->
             <nav id="sidebarMenu" class="col-md-3 col-lg-2 d-md-block sidebar collapse">
+                <!-- Expand button (visible when collapsed) -->
+                <button class="btn btn-primary sidebar-expand-btn" id="sidebarExpandBtn" title="Expandir menú" style="display: none;">
+                    <i class="bi bi-list"></i>
+                </button>
                 <div class="position-sticky pt-3 d-flex flex-column h-100">
-                    <div class="px-3 mb-4">
-                        <h5 class="text-white fw-bold mb-0">
-                            <i class="bi bi-diagram-3-fill text-primary me-2"></i>QAWAK
-                        </h5>
-                        <small class="text-muted ms-4">NETWORK MONITOR</small>
+                    <div class="px-3 mb-4 d-flex align-items-center justify-content-between">
+                        <div>
+                            <h5 class="text-white fw-bold mb-0">
+                                <i class="bi bi-diagram-3-fill text-primary me-2"></i><span>QAWAK</span>
+                            </h5>
+                            <small class="text-muted ms-4">NETWORK MONITOR</small>
+                        </div>
+                        <button class="btn btn-link text-secondary p-0 sidebar-toggle-btn" id="sidebarToggle" title="Colapsar/Expandir menú" style="font-size: 1.5rem; text-decoration: none;">
+                            <i class="bi bi-list"></i>
+                        </button>
                     </div>
 
                     <ul class="nav flex-column">
                         <li class="nav-item">
                             <a class="nav-link {% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}"
                                 href="{% url 'dashboard' %}">
-                                <i class="bi bi-grid-1x2-fill"></i> Dashboard
+                                <i class="bi bi-grid-1x2-fill"></i> <span>Dashboard</span>
                             </a>
                         </li>
                         <li class="nav-item">
                             <a class="nav-link {% if 'equipo' in request.resolver_match.url_name %}active{% endif %}"
                                 href="{% url 'equipo_list' %}">
-                                <i class="bi bi-router-fill"></i> Equipos
+                                <i class="bi bi-router-fill"></i> <span>Equipos</span>
                             </a>
                         </li>
                         <li class="nav-item">
                             <a class="nav-link" href="{% url 'reportes' %}">
-                                <i class="bi bi-bar-chart-fill"></i> Reportes
+                                <i class="bi bi-bar-chart-fill"></i> <span>Reportes</span>
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link {% if 'mapa' in request.resolver_match.url_name %}active{% endif %}"
+                                href="{% url 'mapa' %}">
+                                <i class="bi bi-map-fill"></i> <span>Mapa</span>
                             </a>
                         </li>
                         <li class="nav-item">
                             <a class="nav-link {% if 'calendario' in request.resolver_match.url_name or 'evento' in request.resolver_match.url_name %}active{% endif %}"
                                 href="{% url 'calendario' %}">
-                                <i class="bi bi-calendar-event-fill"></i> Calendario
+                                <i class="bi bi-calendar-event-fill"></i> <span>Calendario</span>
                             </a>
                         </li>
                         {% if user.profile.role == 'admin' %}
                         <li class="nav-item">
                             <a class="nav-link {% if 'usuario' in request.resolver_match.url_name %}active{% endif %}"
                                 href="{% url 'usuario_list' %}">
-                                <i class="bi bi-people-fill"></i> Usuarios
+                                <i class="bi bi-people-fill"></i> <span>Usuarios</span>
                             </a>
                         </li>
                         <li class="nav-item dropdown">
                             <a class="nav-link dropdown-toggle {% if 'configuracion' in request.resolver_match.url_name or 'marca' in request.resolver_match.url_name or 'tipo' in request.resolver_match.url_name %}active{% endif %}"
                                 href="#" id="navbarDropdown" role="button" data-bs-toggle="dropdown"
                                 aria-expanded="false">
-                                <i class="bi bi-gear-fill"></i> Configuración
+                                <i class="bi bi-gear-fill"></i> <span>Configuración</span>
                             </a>
                             <ul class="dropdown-menu" aria-labelledby="navbarDropdown">
                                 <li><a class="dropdown-item" href="{% url 'configuracion' %}">
@@ -298,7 +315,40 @@
                 }
             }
         });
+
+        // Sidebar collapse logic
+        document.addEventListener('DOMContentLoaded', () => {
+            const sidebar = document.getElementById('sidebarMenu');
+            const sidebarToggle = document.getElementById('sidebarToggle');
+            const sidebarExpandBtn = document.getElementById('sidebarExpandBtn');
+            const savedState = localStorage.getItem('sidebarCollapsed') === 'true';
+
+            // Apply saved state
+            if (savedState) {
+                sidebar.classList.add('collapsed');
+                document.body.classList.add('sidebar-collapsed');
+                sidebarExpandBtn.style.display = 'flex';
+            }
+
+            // Toggle collapse
+            sidebarToggle.addEventListener('click', () => {
+                sidebar.classList.add('collapsed');
+                document.body.classList.add('sidebar-collapsed');
+                sidebarExpandBtn.style.display = 'flex';
+                localStorage.setItem('sidebarCollapsed', 'true');
+            });
+            
+            // Expand sidebar
+            sidebarExpandBtn.addEventListener('click', () => {
+                sidebar.classList.remove('collapsed');
+                document.body.classList.remove('sidebar-collapsed');
+                sidebarExpandBtn.style.display = 'none';
+                localStorage.setItem('sidebarCollapsed', 'false');
+            });
+        });
     </script>
+    
+    {% block extra_js %}{% endblock %}
 </body>
 
 </html>

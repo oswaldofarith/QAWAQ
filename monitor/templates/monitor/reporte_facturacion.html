@@ -1,0 +1,140 @@
+{% extends 'base.html' %}
+{% load monitor_extras %}
+
+{% block header_title %}Reportes de Facturación{% endblock %}
+{% block header_subtitle %}Supervisión de equipos críticos por fecha de facturación.{% endblock %}
+
+{% block content %}
+<!-- Top Controls -->
+<div class="row mb-4">
+    <div class="col-12 d-flex justify-content-between align-items-center">
+        <!-- Tabs -->
+        <ul class="nav nav-tabs border-bottom-0">
+            <li class="nav-item">
+                <a class="nav-link text-secondary bg-transparent border-0" href="{% url 'reportes' %}">Reporte Global</a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link text-secondary bg-transparent border-0" href="{% url 'reporte_individual' %}">Reporte Individual</a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link active bg-transparent text-primary border-primary border-top-0 border-end-0 border-start-0 border-bottom-2 fw-bold"
+                    href="#" style="border-bottom-width: 2px !important;">Facturación</a>
+            </li>
+        </ul>
+
+        <!-- Month Navigation -->
+        <div class="d-flex align-items-center gap-3">
+            <a href="?mes={{ prev_mes }}&anio={{ prev_anio }}" class="btn btn-outline-secondary btn-sm">
+                <i class="bi bi-chevron-left"></i>
+            </a>
+            <span class="text-white fw-bold">{{ mes_nombre }} {{ anio }}</span>
+            <a href="?mes={{ next_mes }}&anio={{ next_anio }}" class="btn btn-outline-secondary btn-sm">
+                <i class="bi bi-chevron-right"></i>
+            </a>
+            
+            <div class="dropdown ms-2">
+                <button class="btn btn-outline-secondary dropdown-toggle btn-sm d-flex align-items-center gap-2" type="button"
+                    data-bs-toggle="dropdown" aria-expanded="false">
+                    <i class="bi bi-download"></i> Exportar
+                </button>
+                <ul class="dropdown-menu dropdown-menu-end bg-dark border-secondary">
+                    <li><a class="dropdown-item text-white" href="#">
+                            <i class="bi bi-file-earmark-excel me-2 text-success"></i> Excel (.xlsx)
+                        </a></li>
+                </ul>
+            </div>
+        </div>
+    </div>
+    <div class="col-12">
+        <hr class="mt-0 border-secondary border-opacity-25">
+    </div>
+</div>
+
+{% for data in report_data %}
+<div class="card-dashboard mb-4 p-0 overflow-hidden">
+    <div class="p-3 border-bottom border-secondary border-opacity-25 bg-dark bg-opacity-50 d-flex justify-content-between align-items-center">
+        <div>
+            <h6 class="text-white mb-0 fw-bold"><i class="bi bi-calendar-event me-2 text-primary"></i>{{ data.date|date:"l d, F Y" }}</h6>
+            <div class="small text-muted mt-1">
+                Porciones: 
+                {% for p in data.portions %}
+                    {{ p.nombre }}{% if not forloop.last %}, {% endif %}
+                {% endfor %}
+            </div>
+        </div>
+        <span class="badge bg-secondary bg-opacity-25 border border-secondary border-opacity-25 text-white">
+            {{ data.equipments|length }} Equipos
+        </span>
+    </div>
+
+    <div class="table-responsive">
+        <table class="table table-custom table-hover mb-0">
+            <thead>
+                <tr>
+                    <th class="ps-4">EQUIPO</th>
+                    <th class="text-center">ESTADO</th>
+                    <th>ÚLTIMA COM.</th>
+                    <th>ÚLTIMO FALLO</th>
+                    <th class="text-end">TOTAL MEDIDORES</th>
+                    <!-- Dynamic Brand Columns -->
+                    {% for brand in brand_headers %}
+                    <th class="text-end small text-secondary">{{ brand.name|upper }}</th>
+                    {% endfor %}
+                </tr>
+            </thead>
+            <tbody>
+                {% for eq in data.equipments %}
+                <tr>
+                    <td class="ps-4 font-monospace text-white small" style="vertical-align: middle;">
+                        <a href="{% url 'equipo_detail' eq.id %}" class="text-decoration-none text-white hover-primary">
+                            {{ eq.id_equipo }}
+                        </a>
+                        <div class="small text-muted" style="font-size: 0.7rem;">{{ eq.ip }}</div>
+                    </td>
+                    <td class="text-center" style="vertical-align: middle;">
+                        {% if eq.is_online %}
+                        <span class="badge bg-success bg-opacity-25 text-success border border-success border-opacity-25 rounded-pill px-2">ONLINE</span>
+                        {% else %}
+                        <span class="badge bg-danger bg-opacity-25 text-danger border border-danger border-opacity-25 rounded-pill px-2">OFFLINE</span>
+                        {% endif %}
+                    </td>
+                    <td class="small text-secondary" style="vertical-align: middle;">
+                        {{ eq.last_seen|default:"-"|date:"d/m H:i" }}
+                    </td>
+                    <td class="small text-secondary" style="vertical-align: middle;">
+                        {% if eq.last_failure_time %}
+                        <span class="text-danger">{{ eq.last_failure_time|date:"d/m H:i" }}</span>
+                        {% else %}
+                        -
+                        {% endif %}
+                    </td>
+                    <td class="text-end fw-bold text-white pe-4" style="vertical-align: middle;">
+                        {{ eq.total_medidores }}
+                    </td>
+                    <!-- Dynamic Brand Counts -->
+                    {% for count in eq.brand_counts_list %}
+                    <td class="text-end text-secondary small pe-4" style="vertical-align: middle;">
+                        {% if count > 0 %}{{ count }}{% else %}-{% endif %}
+                    </td>
+                    {% endfor %}
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="{{ brand_headers|length|add:5 }}" class="text-center py-4 text-muted small">
+                        Sin equipos afectados
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% empty %}
+<div class="d-flex flex-column align-items-center justify-content-center py-5">
+    <div class="display-1 text-secondary opacity-25 mb-3"><i class="bi bi-calendar-x"></i></div>
+    <h5 class="text-white">No hay eventos de facturación registrados</h5>
+    <p class="text-secondary text-center">Para este mes no se encontraron eventos de tipo "Facturación".</p>
+</div>
+{% endfor %}
+
+{% endblock %}

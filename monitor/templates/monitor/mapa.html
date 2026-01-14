@@ -1,0 +1,286 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block header_title %}Mapa de Equipos{% endblock %}
+{% block header_subtitle %}{{ total_equipos }} equipos en la red{% endblock %}
+
+{% block extra_head %}
+<!-- Leaflet CSS -->
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<!-- Leaflet MarkerCluster CSS -->
+<link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css" />
+<link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css" />
+
+<style>
+    #map {
+        height: calc(100vh - 200px);
+        min-height: 500px;
+        border-radius: 8px;
+    }
+    
+    .filter-panel {
+        background: var(--bs-body-bg);
+        border-radius: 8px;
+        padding: 1.5rem;
+        margin-bottom: 1rem;
+    }
+    
+    .leaflet-popup-content-wrapper {
+        background: var(--bs-body-bg);
+        color: var(--bs-body-color);
+    }
+    
+    .leaflet-popup-tip {
+        background: var(--bs-body-bg);
+    }
+    
+    .status-badge-online {
+        background-color: #28a745;
+        color: white;
+        padding: 0.25rem 0.5rem;
+        border-radius: 4px;
+        font-size: 0.875rem;
+    }
+    
+    .status-badge-offline {
+        background-color: #dc3545;
+        color: white;
+        padding: 0.25rem 0.5rem;
+        border-radius: 4px;
+        font-size: 0.875rem;
+    }
+    
+    /* Custom cluster styles */
+    .marker-cluster-custom {
+        text-align: center;
+    }
+    
+    .marker-cluster-custom div {
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: bold;
+        color: white;
+        font-size: 14px;
+        border: 3px solid rgba(255, 255, 255, 0.8);
+        box-shadow: 0 0 10px rgba(0, 0, 0, 0.3);
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- Filtros -->
+<div class="filter-panel">
+    <form method="get" class="row g-3 align-items-end">
+        <div class="col-md-2">
+            <label class="form-label">Filtrar por Marca</label>
+            <select name="marca" class="form-select">
+                <option value="">Todas</option>
+                {% for marca in marcas %}
+                <option value="{{ marca.id }}" {% if marca_filter|stringformat:"s" == marca.id|stringformat:"s" %}selected{% endif %}>
+                    {{ marca.nombre }}
+                </option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="col-md-2">
+            <label class="form-label">Filtrar por Medio</label>
+            <select name="medio" class="form-select">
+                <option value="">Todos</option>
+                <option value="FIBRA" {% if medio_filter == "FIBRA" %}selected{% endif %}>Fibra</option>
+                <option value="CELULAR" {% if medio_filter == "CELULAR" %}selected{% endif %}>Celular</option>
+            </select>
+        </div>
+        <div class="col-md-3">
+            <label class="form-label">Filtrar por Porción</label>
+            <select name="porcion" class="form-select">
+                <option value="">Todas las porciones</option>
+                {% for porcion in porciones %}
+                <option value="{{ porcion.id }}" {% if porcion_filter|stringformat:"s" == porcion.id|stringformat:"s" %}selected{% endif %}>
+                    {{ porcion.nombre }}
+                </option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="col-md-2">
+            <label class="form-label">Filtrar por Estado</label>
+            <select name="estado" class="form-select">
+                <option value="">Todos</option>
+                <option value="ONLINE" {% if estado_filter == "ONLINE" %}selected{% endif %}>Online</option>
+                <option value="OFFLINE" {% if estado_filter == "OFFLINE" %}selected{% endif %}>Offline</option>
+            </select>
+        </div>
+        <div class="col-md-3">
+            <button type="submit" class="btn btn-primary w-100">
+                <i class="bi bi-funnel"></i> Aplicar
+            </button>
+            <a href="{% url 'mapa' %}" class="btn btn-outline-secondary w-100 mt-2">
+                <i class="bi bi-x-circle"></i> Limpiar
+            </a>
+        </div>
+    </form>
+</div>
+
+<!-- Mapa -->
+<div class="card">
+    <div class="card-body p-0">
+        <div id="map"></div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<!-- Leaflet JS -->
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<!-- Leaflet MarkerCluster JS -->
+<script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Initialize map centered on Guayaquil
+    const map = L.map('map').setView([-2.19, -79.89], 12);
+    
+    // Add OpenStreetMap tiles
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+        maxZoom: 19
+    }).addTo(map);
+    
+    // Set max bounds to Guayaquil area
+    const guayaquilBounds = [
+        [-2.35, -80.15],  // Southwest
+        [-1.95, -79.65]   // Northeast
+    ];
+    map.setMaxBounds(guayaquilBounds);
+    
+    // Create marker cluster group with custom icon function
+    const markers = L.markerClusterGroup({
+        chunkedLoading: true,
+        maxClusterRadius: 50,
+        spiderfyOnMaxZoom: true,
+        showCoverageOnHover: false,
+        zoomToBoundsOnClick: true,
+        iconCreateFunction: function(cluster) {
+            // Get all child markers in this cluster
+            const childMarkers = cluster.getAllChildMarkers();
+            
+            // Count offline and online equipos
+            let offlineCount = 0;
+            let onlineCount = 0;
+            childMarkers.forEach(marker => {
+                // Access the equipment data stored in marker options
+                if (marker.options.equipoData) {
+                    if (marker.options.equipoData.color === 'red') {
+                        offlineCount++;
+                    } else if (marker.options.equipoData.color === 'green') {
+                        onlineCount++;
+                    }
+                }
+            });
+            
+            // Determine cluster color based on new logic
+            let clusterColor;
+            if (offlineCount === 0) {
+                // No offline equipos -> Green
+                clusterColor = '#28a745';
+            } else if (offlineCount <= 2 && onlineCount > 0) {
+                // 1-2 offline AND at least 1 online -> Yellow
+                clusterColor = '#ffc107';
+            } else {
+                // (1-2 offline AND no online) OR (more than 2 offline) -> Red
+                clusterColor = '#dc3545';
+            }
+            
+            // Get total count for display
+            const totalCount = cluster.getChildCount();
+            
+            // Return custom styled icon
+            return L.divIcon({
+                html: '<div style="background-color: ' + clusterColor + ';"><span>' + totalCount + '</span></div>',
+                className: 'marker-cluster-custom',
+                iconSize: L.point(40, 40)
+            });
+        }
+    });
+    
+    // Get equipos data from Django
+    const equiposData = {{ equipos_json|safe }};
+    
+    // Create custom icon function
+    function createIcon(color) {
+        return L.divIcon({
+            className: 'custom-div-icon',
+            html: `<div style="background-color: ${color}; width: 12px; height: 12px; border-radius: 50%; border: 2px solid white; box-shadow: 0 0 4px rgba(0,0,0,0.5);"></div>`,
+            iconSize: [16, 16],
+            iconAnchor: [8, 8]
+        });
+    }
+    
+    // Add markers for each equipo
+    equiposData.forEach(function(equipo) {
+        const icon = createIcon(equipo.color);
+        const marker = L.marker([equipo.lat, equipo.lng], { 
+            icon: icon,
+            equipoData: equipo // Store equipment data in marker options for cluster function
+        });
+        
+        // Create popup content
+        const statusClass = equipo.color === 'green' ? 'status-badge-online' : 'status-badge-offline';
+        const popupContent = `
+            <div style="min-width: 200px;">
+                <h6 class="mb-2"><i class="bi bi-router"></i> ${equipo.id_equipo}</h6>
+                <table class="table table-sm table-borderless mb-0">
+                    <tr>
+                        <td><strong>Estado:</strong></td>
+                        <td><span class="${statusClass}">${equipo.estado}</span></td>
+                    </tr>
+                    <tr>
+                        <td><strong>IP:</strong></td>
+                        <td class="font-monospace">${equipo.ip}</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Marca:</strong></td>
+                        <td>${equipo.marca}</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Tipo:</strong></td>
+                        <td>${equipo.tipo}</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Comunicación:</strong></td>
+                        <td>${equipo.comunicacion}</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Dirección:</strong></td>
+                        <td>${equipo.direccion}</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Poste:</strong></td>
+                        <td>${equipo.poste}</td>
+                    </tr>
+                </table>
+                <div class="mt-2">
+                    <a href="/equipos/${equipo.id}/" class="btn btn-sm btn-info w-100" style="color: white;">
+                        <i class="bi bi-info-circle"></i> Ver Detalles
+                    </a>
+                </div>
+            </div>
+        `;
+        
+        marker.bindPopup(popupContent);
+        markers.addLayer(marker);
+    });
+    
+    // Add cluster group to map
+    map.addLayer(markers);
+    
+    // Fit bounds to show all markers if there are any
+    if (equiposData.length > 0) {
+        map.fitBounds(markers.getBounds(), { padding: [50, 50] });
+    }
+});
+</script>
+{% endblock %}

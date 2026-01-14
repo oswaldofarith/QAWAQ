@@ -55,7 +55,7 @@ class Equipo(models.Model):
     ]
     MEDIO_CHOICES = [
         ('FIBRA', 'Fibra Óptica'),
-        ('CELULAR', 'Celular (4G/5G)'),
+        ('CELULAR', 'Celular'),
     ]
 
     id_equipo = models.CharField(max_length=50, unique=True, verbose_name="ID Equipo")
@@ -255,6 +255,14 @@ class Medidor(models.Model):
     numero = models.CharField(max_length=100, unique=True, verbose_name='Número de Medidor')
     marca = models.CharField(max_length=20, choices=MARCA_CHOICES, verbose_name='Marca')
     porcion = models.ForeignKey(Porcion, on_delete=models.CASCADE, related_name='medidores', verbose_name='Porción')
+    colector = models.ForeignKey(
+        'Equipo',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='medidores_asociados',
+        verbose_name='Colector Asociado'
+    )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     

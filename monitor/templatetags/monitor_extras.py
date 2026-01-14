@@ -62,3 +62,40 @@ def get_item(dictionary, key):
         return []
     return dictionary.get(key, [])
 
+
+@register.filter
+def thousands_dot(value):
+    """
+    Format a number with dot (.) as thousands separator.
+    
+    Example:
+        1000 -> 1.000
+        1000000 -> 1.000.000
+    """
+    try:
+        value = int(value)
+        return f"{value:,}".replace(',', '.')
+    except (ValueError, TypeError):
+        return value
+
+@register.filter
+def unique_portions(medidores):
+    """Returns a list of unique portions from a list/queryset of medidores."""
+    if not medidores:
+        return []
+    
+    seen = set()
+    portions = []
+    
+    # Check if medidores is a queryset or list
+    iterable = medidores.all() if hasattr(medidores, 'all') else medidores
+        
+    for medidor in iterable:
+        porcion = medidor.porcion
+        if porcion and porcion.id not in seen:
+            seen.add(porcion.id)
+            portions.append(porcion)
+            
+    # Sort by name
+    portions.sort(key=lambda x: x.nombre)
+    return portions

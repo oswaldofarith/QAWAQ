@@ -1,0 +1,135 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load monitor_extras %}
+
+{% block header_title %}Resumen de Importación{% endblock %}
+{% block header_subtitle %}Resultados de la importación de colectores asociados{% endblock %}
+
+{% block content %}
+<div class="row g-4 mb-4">
+    <!-- Created Associations -->
+    <div class="col-md-6 col-lg-3">
+        <div class="card-dashboard p-4 h-100 d-flex flex-column justify-content-center align-items-center text-center">
+            <h5 class="text-secondary text-uppercase small fw-bold mb-2">Asociaciones Creadas</h5>
+            <div class="display-4 fw-bold text-success my-auto">
+                {{ stats.created|thousands_dot }}
+            </div>
+            <div class="text-secondary small mt-2">
+                Nuevas asociaciones
+            </div>
+        </div>
+    </div>
+
+    <!-- Updated Associations -->
+    <div class="col-md-6 col-lg-3">
+        <div class="card-dashboard p-4 h-100 d-flex flex-column justify-content-center align-items-center text-center">
+            <h5 class="text-secondary text-uppercase small fw-bold mb-2">Asociaciones Actualizadas</h5>
+            <div class="display-4 fw-bold text-warning my-auto">
+                {{ stats.updated|thousands_dot }}
+            </div>
+            <div class="text-secondary small mt-2">
+                Colector cambiado
+            </div>
+        </div>
+    </div>
+
+    <!-- Rejected Associations -->
+    <div class="col-md-6 col-lg-3">
+        <div class="card-dashboard p-4 h-100 d-flex flex-column justify-content-center align-items-center text-center">
+            <h5 class="text-secondary text-uppercase small fw-bold mb-2">No Importadas</h5>
+            <div class="display-4 fw-bold text-danger my-auto">
+                {{ stats.rejected_total|thousands_dot }}
+            </div>
+            <div class="text-secondary small mt-2">
+                {{ stats.rejected_no_medidor|thousands_dot }} sin medidor<br>
+                {{ stats.rejected_no_colector|thousands_dot }} sin colector
+            </div>
+        </div>
+    </div>
+
+    <!-- Without Association -->
+    <div class="col-md-6 col-lg-3">
+        <div class="card-dashboard p-4 h-100 d-flex flex-column justify-content-center align-items-center text-center">
+            <h5 class="text-secondary text-uppercase small fw-bold mb-2">Sin Asociación</h5>
+            <div class="display-4 fw-bold text-info my-auto">
+                {{ stats.sin_colector|thousands_dot }}
+            </div>
+            <div class="text-secondary small mt-2">
+                Medidores sin colector
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Details Card -->
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <i class="bi bi-clipboard-check text-success"></i> Resumen Detallado
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <div class="alert alert-success mb-0">
+                            <h6><i class="bi bi-check-circle"></i> Importación Exitosa</h6>
+                            <ul class="mb-0">
+                                <li><strong>{{ stats.created|thousands_dot }}</strong> asociaciones nuevas creadas</li>
+                                <li><strong>{{ stats.updated|thousands_dot }}</strong> asociaciones actualizadas (colector cambiado)</li>
+                                <li>Total procesado: <strong>{{ stats.total_processed|thousands_dot }}</strong></li>
+                            </ul>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        {% if stats.rejected_total > 0 %}
+                        <div class="alert alert-warning mb-0">
+                            <h6><i class="bi bi-exclamation-triangle"></i> Rechazados</h6>
+                            <ul class="mb-0">
+                                <li><strong>{{ stats.rejected_no_medidor|thousands_dot }}</strong> medidor no existe en QAWAQ</li>
+                                <li><strong>{{ stats.rejected_no_colector|thousands_dot }}</strong> colector no existe en QAWAQ</li>
+                                <li>Total rechazado: <strong>{{ stats.rejected_total|thousands_dot }}</strong></li>
+                            </ul>
+                        </div>
+                        {% else %}
+                        <div class="alert alert-info mb-0">
+                            <h6><i class="bi bi-info-circle"></i> Sin Rechazos</h6>
+                            <p class="mb-0">Todas las asociaciones del archivo fueron procesadas exitosamente.</p>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <div class="mt-3">
+                    <div class="alert alert-info mb-0">
+                        <h6><i class="bi bi-info-circle"></i> Estado Actual</h6>
+                        <p class="mb-0">
+                            Hay <strong>{{ stats.sin_colector|thousands_dot }}</strong> medidores en el sistema que 
+                            {% if stats.sin_colector == 0 %}
+                            no tienen ningún colector asociado (¡Todos los medidores tienen asociación!).
+                            {% elif stats.sin_colector == 1 %}
+                            aún no tiene un colector asociado.
+                            {% else %}
+                            aún no tienen un colector asociado.
+                            {% endif %}
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Actions -->
+<div class="row mt-4">
+    <div class="col-12">
+        <a href="{% url 'import_colectores' %}" class="btn btn-primary">
+            <i class="bi bi-upload"></i> Importar Más Asociaciones
+        </a>
+        <a href="{% url 'medidor_list' %}" class="btn btn-outline-secondary ms-2">
+            <i class="bi bi-list"></i> Ver Medidores
+        </a>
+    </div>
+</div>
+{% endblock %}

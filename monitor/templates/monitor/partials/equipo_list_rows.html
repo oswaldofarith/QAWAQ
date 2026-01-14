@@ -24,6 +24,17 @@
         {% if equipo.medio_comunicacion == 'FIBRA' %}Fibra{% else %}Celular{% endif %}
     </td>
     <td style="vertical-align: middle;">
+        {% for porcion in equipo.medidores_asociados.all|unique_portions %}
+            {% if porcion.tipo == 'MASIVO' %}
+            <span class="badge bg-danger rounded-pill">{{ porcion.nombre }}</span>
+            {% else %}
+            <span class="badge bg-primary rounded-pill">{{ porcion.nombre }}</span>
+            {% endif %}
+        {% empty %}
+        <span class="text-muted small">-</span>
+        {% endfor %}
+    </td>
+    <td style="vertical-align: middle;">
         {% if equipo.is_online %}
         <div class="d-flex align-items-center text-success fw-bold small">
             <span class="status-dot bg-success me-2"></span> Online
@@ -37,13 +48,7 @@
     <td class="text-secondary small" style="vertical-align: middle;">
         {{ equipo.last_seen|human_time }}
     </td>
-    <td class="text-white font-monospace small" style="vertical-align: middle;">
-        {% if equipo.last_latency %}
-        {{ equipo.last_latency }}ms
-        {% else %}
-        <span class="text-muted">-</span>
-        {% endif %}
-    </td>
+
     <td class="text-end pe-4" style="vertical-align: middle;">
         <div class="d-flex justify-content-end gap-1">
             <!-- Ping Action (Modal) -->

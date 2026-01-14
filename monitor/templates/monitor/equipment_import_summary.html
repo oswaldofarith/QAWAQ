@@ -1,0 +1,153 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load monitor_extras %}
+
+{% block header_title %}Resumen de Importación de Equipos{% endblock %}
+{% block header_subtitle %}Resultados del proceso de importación{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Summary Cards -->
+    <div class="row mb-4">
+        <!-- Created Card -->
+        <div class="col-md-4">
+            <div class="card border-success">
+                <div class="card-body">
+                    <h5 class="card-title"><i class="bi bi-plus-circle-fill text-success"></i> Equipos Nuevos</h5>
+                    <h2 class="text-success">{{ stats.created|default:0|thousands_dot }}</h2>
+                    <p class="text-muted mb-0">No existían antes de la importación</p>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Updated Card -->
+        <div class="col-md-4">
+            <div class="card border-primary">
+                <div class="card-body">
+                    <h5 class="card-title"><i class="bi bi-arrow-repeat text-primary"></i> Equipos Actualizados</h5>
+                    <h2 class="text-primary">{{ stats.updated|default:0|thousands_dot }}</h2>
+                    <p class="text-muted mb-0">Información actualizada</p>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Rejected Card -->
+        <div class="col-md-4">
+            <div class="card border-danger">
+                <div class="card-body">
+                    <h5 class="card-title"><i class="bi bi-x-circle text-danger"></i> No Importados</h5>
+                    <h2 class="text-danger">{{ stats.rejected|default:0|thousands_dot }}</h2>
+                    <p class="text-muted mb-0">Con errores o duplicados omitidos</p>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Created Equipos List -->
+    {% if stats.created_equipos %}
+    <div class="card mb-4 border-success">
+        <div class="card-header bg-success text-white">
+            <h5 class="mb-0"><i class="bi bi-plus-circle"></i> Equipos Nuevos Importados ({{ stats.created|thousands_dot }})</h5>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-sm table-hover">
+                    <thead>
+                        <tr>
+                            <th>ID Equipo</th>
+                            <th>Dirección IP</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for equipo in stats.created_equipos %}
+                        <tr>
+                            <td class="font-monospace">{{ equipo.id_equipo }}</td>
+                            <td class="font-monospace">{{ equipo.ip }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+    
+    <!-- Updated Equipos List -->
+    {% if stats.updated_equipos %}
+    <div class="card mb-4 border-primary">
+        <div class="card-header bg-primary text-white">
+            <h5 class="mb-0"><i class="bi bi-arrow-repeat"></i> Equipos Actualizados ({{ stats.updated|thousands_dot }})</h5>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-sm table-hover">
+                    <thead>
+                        <tr>
+                            <th>ID Equipo</th>
+                            <th>Dirección IP</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for equipo in stats.updated_equipos %}
+                        <tr>
+                            <td class="font-monospace">{{ equipo.id_equipo }}</td>
+                            <td class="font-monospace">{{ equipo.ip }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+    
+    <!-- Rejected Equipos List -->
+    {% if stats.rejected_equipos %}
+    <div class="card mb-4 border-danger">
+        <div class="card-header bg-danger text-white">
+            <h5 class="mb-0"><i class="bi bi-x-circle"></i> Equipos No Importados ({{ stats.rejected|thousands_dot }})</h5>
+        </div>
+        <div class="card-body">
+            <p class="mb-3">
+                Los siguientes equipos no pudieron ser importados. Revise las causas para cada uno:
+            </p>
+            
+            <div class="table-responsive">
+                <table class="table table-sm">
+                    <thead>
+                        <tr>
+                            <th>Fila</th>
+                            <th>ID Equipo</th>
+                            <th>Causa de Rechazo</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for reject in stats.rejected_equipos %}
+                        <tr>
+                            <td><span class="badge bg-secondary">{{ reject.row }}</span></td>
+                            <td class="font-monospace">{{ reject.id_equipo }}</td>
+                            <td><span class="text-danger">{{ reject.reason }}</span></td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+    
+    <!-- Actions -->
+    <div class="row">
+        <div class="col-md-12">
+            <div class="d-flex gap-2">
+                <a href="{% url 'equipo_list' %}" class="btn btn-primary">
+                    <i class="bi bi-list"></i> Ver Lista de Equipos
+                </a>
+                <a href="{% url 'import_equipos' %}" class="btn btn-outline-secondary">
+                    <i class="bi bi-upload"></i> Importar Nuevo Archivo
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
