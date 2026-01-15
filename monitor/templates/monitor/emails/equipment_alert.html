@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Alerta de Equipos Offline - QAWAQ</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background-color: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+        .header h1 {
+            margin: 0;
+            font-size: 24px;
+        }
+        .header .icon {
+            font-size: 48px;
+            margin-bottom: 10px;
+        }
+        .content {
+            padding: 30px;
+        }
+        .alert-box {
+            background-color: #fff3cd;
+            border-left: 4px solid #ffc107;
+            padding: 15px;
+            margin-bottom: 20px;
+            border-radius: 4px;
+        }
+        .alert-box strong {
+            color: #856404;
+        }
+        .equipment-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+        .equipment-table th {
+            background-color: #f8f9fa;
+            color: #495057;
+            font-weight: 600;
+            padding: 12px;
+            text-align: left;
+            border-bottom: 2px solid #dee2e6;
+        }
+        .equipment-table td {
+            padding: 12px;
+            border-bottom: 1px solid #dee2e6;
+        }
+        .equipment-table tr:hover {
+            background-color: #f8f9fa;
+        }
+        .status-badge {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 600;
+            background-color: #dc3545;
+            color: white;
+        }
+        .footer {
+            background-color: #f8f9fa;
+            padding: 20px;
+            text-align: center;
+            font-size: 14px;
+            color: #6c757d;
+            border-top: 1px solid #dee2e6;
+        }
+        .footer a {
+            color: #667eea;
+            text-decoration: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div class="icon">⚠️</div>
+            <h1>Alerta de Equipos Críticos OFFLINE</h1>
+            <p>Sistema de Monitoreo QAWAQ - Vigilante AMI</p>
+        </div>
+        
+        <div class="content">
+            <div class="alert-box">
+                <strong>ATENCIÓN:</strong> Se detectaron <strong>{{ total_count }}</strong> equipo(s) crítico(s) offline que requieren atención inmediata.
+            </div>
+            
+            <p><strong>Fecha y hora de detección:</strong> {{ alert_time|date:"d/m/Y H:i" }}</p>
+            
+            <table class="equipment-table">
+                <thead>
+                    <tr>
+                        <th>Equipo</th>
+                        <th>IP</th>
+                        <th>Estado</th>
+                        <th>Tiempo Offline</th>
+                        <th>Medidores</th>
+                        <th>Porciones Afectadas</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in equipment_list %}
+                    <tr>
+                        <td><strong>{{ item.equipo.id_equipo }}</strong></td>
+                        <td><code>{{ item.equipo.ip }}</code></td>
+                        <td><span class="status-badge">OFFLINE</span></td>
+                        <td>{{ item.downtime }}</td>
+                        <td>{{ item.medidor_count }}</td>
+                        <td>{{ item.affected_portions }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            
+            <p style="margin-top: 30px; padding: 15px; background-color: #e7f3ff; border-left: 4px solid #0088cc; border-radius: 4px;">
+                <strong>💡 Acción recomendada:</strong> Por favor, verifique estos equipos  lo antes posible para minimizar el impacto en la facturación y el servicio.
+            </p>
+        </div>
+        
+        <div class="footer">
+            <p>Este es un mensaje automático del sistema QAWAQ Vigilante AMI</p>
+            <p>© 2026 QAWAQ - Sistema de Monitoreo de Red</p>
+        </div>
+    </div>
+</body>
+</html>

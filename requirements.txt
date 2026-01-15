@@ -9,3 +9,8 @@ whitenoise
 ping3
 openpyxl>=3.1.0
 pandas>=2.0.0
+python-decouple
+django-redis
+redis
+sentry-sdk
+safety

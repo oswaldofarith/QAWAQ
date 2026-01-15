@@ -1,7 +1,14 @@
 from django.urls import path
 from . import views, views_export
+from .views.health import health_check, readiness_check, liveness_check
 
 urlpatterns = [
+    # Health checks (for monitoring and load balancers)
+    path('health/', health_check, name='health_check'),
+    path('health/ready/', readiness_check, name='readiness_check'),
+    path('health/live/', liveness_check, name='liveness_check'),
+    
+    # Dashboard
     path('', views.DashboardView.as_view(), name='dashboard'),
     path('equipos/', views.EquipoListView.as_view(), name='equipo_list'),
     path('equipos/nuevo/', views.EquipoCreateView.as_view(), name='equipo_create'),
