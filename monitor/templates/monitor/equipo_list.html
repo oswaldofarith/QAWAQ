@@ -32,8 +32,9 @@
                     <i class="bi bi-search"></i>
                 </span>
                 <input type="text" name="q" class="form-control bg-dark border-secondary text-white ps-5"
-                    placeholder="Buscar por ID, Hostname o Dirección IP..." hx-get="{% url 'equipo_list' %}"
-                    hx-trigger="keyup changed delay:500ms" hx-target="#equipos-table-body"
+                    placeholder="Buscar por ID, Hostname o Dirección IP..." value="{{ request.GET.q|default:'' }}"
+                    hx-get="{% url 'equipo_list' %}"
+                    hx-trigger="keyup changed delay:500ms" hx-target="#equipos-list-container" hx-swap="innerHTML"
                     hx-include="[name='marca'], [name='medio'], [name='estado'], [name='tipo'], [name='comunicacion'], [name='porcion']"
                     autocomplete="off">
             </div>
@@ -41,11 +42,11 @@
         <!-- Type Filter Button (Visual placeholder for specific modal/dropdown, mapped to select for now) -->
         <div class="col-md-4">
             <select name="tipo" class="form-select bg-dark border-secondary text-white" hx-get="{% url 'equipo_list' %}"
-                hx-trigger="change" hx-target="#equipos-table-body"
+                hx-trigger="change" hx-target="#equipos-list-container" hx-swap="innerHTML"
                 hx-include="[name='q'], [name='marca'], [name='medio'], [name='estado'], [name='comunicacion'], [name='porcion']">
                 <option value="">Filtrar por Tipo</option>
                 {% for tipo in tipos %}
-                <option value="{{ tipo.id }}">{{ tipo.nombre }}</option>
+                <option value="{{ tipo.id }}" {% if request.GET.tipo == tipo.id|stringformat:"s" %}selected{% endif %}>{{ tipo.nombre }}</option>
                 {% endfor %}
             </select>
         </div>
@@ -57,49 +58,49 @@
 
         <!-- Marca -->
         <select name="marca" class="form-select form-select-sm bg-dark border-secondary text-white w-auto"
-            hx-get="{% url 'equipo_list' %}" hx-trigger="change" hx-target="#equipos-table-body"
+            hx-get="{% url 'equipo_list' %}" hx-trigger="change" hx-target="#equipos-list-container" hx-swap="innerHTML"
             hx-include="[name='q'], [name='medio'], [name='estado'], [name='tipo'], [name='comunicacion'], [name='porcion']">
             <option value="">Marca: Todas</option>
             {% for marca in marcas %}
-            <option value="{{ marca.id }}">{{ marca.nombre }}</option>
+            <option value="{{ marca.id }}" {% if request.GET.marca == marca.id|stringformat:"s" %}selected{% endif %}>{{ marca.nombre }}</option>
             {% endfor %}
         </select>
         
         <!-- Porción -->
         <select name="porcion" class="form-select form-select-sm bg-dark border-secondary text-white w-auto"
-            hx-get="{% url 'equipo_list' %}" hx-trigger="change" hx-target="#equipos-table-body"
+            hx-get="{% url 'equipo_list' %}" hx-trigger="change" hx-target="#equipos-list-container" hx-swap="innerHTML"
             hx-include="[name='q'], [name='marca'], [name='medio'], [name='estado'], [name='tipo'], [name='comunicacion']">
             <option value="">Porción: Todas</option>
             {% for porcion in porciones %}
-            <option value="{{ porcion.id }}">{{ porcion.nombre }}</option>
+            <option value="{{ porcion.id }}" {% if request.GET.porcion == porcion.id|stringformat:"s" %}selected{% endif %}>{{ porcion.nombre }}</option>
             {% endfor %}
         </select>
         
         <!-- Medio -->
         <select name="medio" class="form-select form-select-sm bg-dark border-secondary text-white w-auto"
-            hx-get="{% url 'equipo_list' %}" hx-trigger="change" hx-target="#equipos-table-body"
+            hx-get="{% url 'equipo_list' %}" hx-trigger="change" hx-target="#equipos-list-container" hx-swap="innerHTML"
             hx-include="[name='q'], [name='marca'], [name='estado'], [name='tipo'], [name='comunicacion'], [name='porcion']">
             <option value="">Medio: Todos</option>
-            <option value="FIBRA">Fibra</option>
-            <option value="CELULAR">Celular</option>
+            <option value="FIBRA" {% if request.GET.medio == 'FIBRA' %}selected{% endif %}>Fibra</option>
+            <option value="CELULAR" {% if request.GET.medio == 'CELULAR' %}selected{% endif %}>Celular</option>
         </select>
 
         <!-- Estado -->
         <select name="estado" class="form-select form-select-sm bg-dark border-secondary text-white w-auto"
-            hx-get="{% url 'equipo_list' %}" hx-trigger="change" hx-target="#equipos-table-body"
+            hx-get="{% url 'equipo_list' %}" hx-trigger="change" hx-target="#equipos-list-container" hx-swap="innerHTML"
             hx-include="[name='q'], [name='marca'], [name='medio'], [name='tipo'], [name='comunicacion'], [name='porcion']">
             <option value="">Estado: Todos</option>
-            <option value="ACTIVO">Activo</option>
-            <option value="INACTIVO">Inactivo</option>
+            <option value="ACTIVO" {% if request.GET.estado == 'ACTIVO' %}selected{% endif %}>Activo</option>
+            <option value="INACTIVO" {% if request.GET.estado == 'INACTIVO' %}selected{% endif %}>Inactivo</option>
         </select>
 
         <!-- Comunicación -->
         <select name="comunicacion" class="form-select form-select-sm bg-dark border-secondary text-white w-auto"
-            hx-get="{% url 'equipo_list' %}" hx-trigger="change" hx-target="#equipos-table-body"
+            hx-get="{% url 'equipo_list' %}" hx-trigger="change" hx-target="#equipos-list-container" hx-swap="innerHTML"
             hx-include="[name='q'], [name='marca'], [name='medio'], [name='estado'], [name='tipo'], [name='porcion']">
             <option value="">Comunicación: Todos</option>
-            <option value="ONLINE">Online</option>
-            <option value="OFFLINE">Offline</option>
+            <option value="ONLINE" {% if request.GET.comunicacion == 'ONLINE' %}selected{% endif %}>Online</option>
+            <option value="OFFLINE" {% if request.GET.comunicacion == 'OFFLINE' %}selected{% endif %}>Offline</option>
         </select>
 
         <a href="{% url 'equipo_list' %}" class="btn btn-link btn-sm text-decoration-none text-primary ms-auto">
@@ -108,52 +109,8 @@
     </div>
 </div>
 
-<!-- Table -->
-<div class="card-dashboard p-0 overflow-hidden">
-    <div class="table-responsive">
-        <table class="table table-custom table-hover mb-0">
-            <thead>
-                <tr>
-                    <th class="ps-4">ID</th>
-                    <th>DIRECCIÓN IP</th>
-
-                    <th>TIPO</th>
-                    <th>MARCA</th>
-                    <th>MEDIO</th>
-                    <th>PORCIONES</th>
-                    <th>COMUNICACIÓN</th>
-                    <th>ÚLTIMA COM.</th>
-
-                    <th class="text-end pe-4">ACCIONES</th>
-                </tr>
-            </thead>
-            <tbody id="equipos-table-body">
-                {% include 'monitor/partials/equipo_list_rows.html' %}
-            </tbody>
-        </table>
-    </div>
-    <!-- Pagination (Simple) -->
-    <div class="p-3 border-top border-secondary border-opacity-25 d-flex justify-content-between align-items-center">
-        <span class="text-secondary small">Mostrando {{ page_obj.start_index }} a {{ page_obj.end_index }} de {{
-            page_obj.paginator.count }} resultados</span>
-        <div>
-            {% if page_obj.has_previous %}
-            <button class="btn btn-outline-secondary btn-sm me-1"
-                hx-get="{% url 'equipo_list' %}?page={{ page_obj.previous_page_number }}"
-                hx-target="#equipos-table-body"
-                hx-include="[name='q'], [name='marca'], [name='medio'], [name='estado'], [name='tipo'], [name='comunicacion'], [name='porcion']">
-                Anterior
-            </button>
-            {% endif %}
-
-            {% if page_obj.has_next %}
-            <button class="btn btn-outline-secondary btn-sm"
-                hx-get="{% url 'equipo_list' %}?page={{ page_obj.next_page_number }}" hx-target="#equipos-table-body"
-                hx-include="[name='q'], [name='marca'], [name='medio'], [name='estado'], [name='tipo'], [name='comunicacion'], [name='porcion']">
-                Siguiente
-            </button>
-            {% endif %}
-        </div>
-    </div>
+<!-- Table Container (Target for Full Refresh) -->
+<div id="equipos-list-container" class="card-dashboard p-0 overflow-hidden">
+    {% include 'monitor/partials/equipo_list_content.html' %}
 </div>
 {% endblock %}

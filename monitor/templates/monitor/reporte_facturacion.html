@@ -22,7 +22,7 @@
             </li>
         </ul>
 
-        <!-- Month Navigation -->
+        <!-- Month Navigation & Date Selector -->
         <div class="d-flex align-items-center gap-3">
             <a href="?mes={{ prev_mes }}&anio={{ prev_anio }}" class="btn btn-outline-secondary btn-sm">
                 <i class="bi bi-chevron-left"></i>
@@ -31,6 +31,22 @@
             <a href="?mes={{ next_mes }}&anio={{ next_anio }}" class="btn btn-outline-secondary btn-sm">
                 <i class="bi bi-chevron-right"></i>
             </a>
+            
+            <!-- Date Picker Form -->
+            <form method="get" class="d-flex align-items-center gap-2 ms-2">
+                <input type="hidden" name="mes" value="{{ mes }}">
+                <input type="hidden" name="anio" value="{{ anio }}">
+                <label for="fecha_selector" class="text-secondary small mb-0">Fecha:</label>
+                <input 
+                    type="date" 
+                    id="fecha_selector" 
+                    name="fecha" 
+                    value="{{ fecha_actual }}"
+                    class="form-control form-control-sm bg-dark border-secondary text-white"
+                    style="max-width: 150px;"
+                    onchange="this.form.submit()"
+                >
+            </form>
             
             <div class="dropdown ms-2">
                 <button class="btn btn-outline-secondary dropdown-toggle btn-sm d-flex align-items-center gap-2" type="button"

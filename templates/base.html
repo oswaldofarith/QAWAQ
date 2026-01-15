@@ -1,12 +1,16 @@
 {% load static %}
 {% load django_htmx %}
 <!DOCTYPE html>
+{% load static %}
 <html lang="es" data-bs-theme="dark">
 
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>QAWAQ - Network Monitor</title>
+    <title>QAWAQ - Vigilante AMI</title>
+    
+    <!-- Favicon -->
+    <link rel="icon" type="image/svg+xml" href="{% static 'images/logo-small.svg' %}">
     <!-- Bootstrap 5 CSS -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <!-- Bootstrap Icons -->
@@ -48,15 +52,11 @@
                 </button>
                 <div class="position-sticky pt-3 d-flex flex-column h-100">
                     <div class="px-3 mb-4 d-flex align-items-center justify-content-between">
-                        <div>
-                            <h5 class="text-white fw-bold mb-0">
-                                <i class="bi bi-diagram-3-fill text-primary me-2"></i><span>QAWAK</span>
-                            </h5>
-                            <small class="text-muted ms-4">NETWORK MONITOR</small>
+                        <div class="d-flex flex-column align-items-start">
+                            <img src="{% static 'images/logo.svg' %}" alt="QAWAQ" class="sidebar-logo sidebar-logo-full" style="width: 140px; height: auto;">
+                            <img src="{% static 'images/logo-small.svg' %}" alt="Q" class="sidebar-logo sidebar-logo-small" style="width: 50px; height: auto; display: none;">
+                            <small class="text-muted ms-0 mt-1 sidebar-subtitle">VIGILANTE AMI</small>
                         </div>
-                        <button class="btn btn-link text-secondary p-0 sidebar-toggle-btn" id="sidebarToggle" title="Colapsar/Expandir menú" style="font-size: 1.5rem; text-decoration: none;">
-                            <i class="bi bi-list"></i>
-                        </button>
                     </div>
 
                     <ul class="nav flex-column">
@@ -131,16 +131,26 @@
                             <a href="#" class="d-flex align-items-center text-decoration-none dropdown-toggle" 
                                id="userDropdown" data-bs-toggle="dropdown" aria-expanded="false">
                                 {% if user.profile.avatar %}
-                                <img src="{{ user.profile.avatar.url }}" alt="{{ user.username }}"
+                                <img src="{{ user.profile.avatar.url }}" alt="{{ user.get_full_name }}"
                                     class="rounded-circle me-2" style="width: 40px; height: 40px; object-fit: cover;">
                                 {% else %}
                                 <div class="rounded-circle bg-primary text-white d-flex align-items-center justify-content-center me-2"
                                     style="width: 40px; height: 40px;">
-                                    {{ user.username|slice:":2"|upper }}
+                                    {% if user.first_name and user.last_name %}
+                                        {{ user.first_name|slice:":1"|upper }}{{ user.last_name|slice:":1"|upper }}
+                                    {% else %}
+                                        {{ user.username|slice:":2"|upper }}
+                                    {% endif %}
                                 </div>
                                 {% endif %}
                                 <div class="flex-grow-1">
-                                    <div class="text-white small fw-bold">{{ user.profile.get_full_name|default:user.username }}</div>
+                                    <div class="text-white small fw-bold">
+                                        {% if user.first_name and user.last_name %}
+                                            {{ user.first_name }} {{ user.last_name }}
+                                        {% else %}
+                                            {{ user.username }}
+                                        {% endif %}
+                                    </div>
                                     <div class="text-muted small" style="font-size: 0.75rem;">
                                         {% if user.profile.role == 'admin' %}
                                         <i class="bi bi-shield-check me-1"></i>Administrador
@@ -319,31 +329,35 @@
         // Sidebar collapse logic
         document.addEventListener('DOMContentLoaded', () => {
             const sidebar = document.getElementById('sidebarMenu');
-            const sidebarToggle = document.getElementById('sidebarToggle');
-            const sidebarExpandBtn = document.getElementById('sidebarExpandBtn');
             const savedState = localStorage.getItem('sidebarCollapsed') === 'true';
 
             // Apply saved state
             if (savedState) {
                 sidebar.classList.add('collapsed');
                 document.body.classList.add('sidebar-collapsed');
-                sidebarExpandBtn.style.display = 'flex';
             }
 
-            // Toggle collapse
-            sidebarToggle.addEventListener('click', () => {
-                sidebar.classList.add('collapsed');
-                document.body.classList.add('sidebar-collapsed');
-                sidebarExpandBtn.style.display = 'flex';
-                localStorage.setItem('sidebarCollapsed', 'true');
-            });
-            
-            // Expand sidebar
-            sidebarExpandBtn.addEventListener('click', () => {
-                sidebar.classList.remove('collapsed');
-                document.body.classList.remove('sidebar-collapsed');
-                sidebarExpandBtn.style.display = 'none';
-                localStorage.setItem('sidebarCollapsed', 'false');
+            // Toggle sidebar on border click
+            sidebar.addEventListener('click', (e) => {
+                // Check if click is on the right edge (last 10px)
+                const rect = sidebar.getBoundingClientRect();
+                const clickX = e.clientX - rect.left;
+                const sidebarWidth = rect.width;
+                
+                // If clicked within 10px of right edge, toggle
+                if (clickX >= sidebarWidth - 10) {
+                    const isCollapsed = sidebar.classList.contains('collapsed');
+                    
+                    if (isCollapsed) {
+                        sidebar.classList.remove('collapsed');
+                        document.body.classList.remove('sidebar-collapsed');
+                        localStorage.setItem('sidebarCollapsed', 'false');
+                    } else {
+                        sidebar.classList.add('collapsed');
+                        document.body.classList.add('sidebar-collapsed');
+                        localStorage.setItem('sidebarCollapsed', 'true');
+                    }
+                }
             });
         });
     </script>

@@ -215,6 +215,26 @@ class EventoFacturacion(models.Model):
         return f"{self.get_tipo_evento_display()} {self.porcion.nombre}"
 
 
+from django.core.exceptions import ValidationError
+
+def validate_avatar(image):
+    """Validate avatar image file type and size."""
+    # Validate file extension
+    valid_extensions = ['.jpg', '.jpeg', '.png', '.gif', '.webp']
+    ext = image.name.lower().split('.')[-1]
+    if f'.{ext}' not in valid_extensions:
+        raise ValidationError(
+            f'Tipo de archivo no permitido. Solo se aceptan: {", ".join(valid_extensions)}'
+        )
+    
+    # Validate file size (max 2MB)
+    max_size = 2 * 1024 * 1024  # 2MB
+    if image.size > max_size:
+        raise ValidationError(
+            f'El archivo es muy grande ({image.size / (1024*1024):.2f}MB). Tamaño máximo: 2MB'
+        )
+
+
 class UserProfile(models.Model):
     """Extended user profile with role and avatar."""
     
@@ -225,7 +245,14 @@ class UserProfile(models.Model):
     
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='profile')
     role = models.CharField(max_length=20, choices=ROLE_CHOICES, default='operator', verbose_name='Rol')
-    avatar = models.ImageField(upload_to='avatars/', null=True, blank=True, verbose_name='Avatar')
+    avatar = models.ImageField(
+        upload_to='avatars/', 
+        null=True, 
+        blank=True, 
+        verbose_name='Avatar',
+        validators=[validate_avatar],
+        help_text='Formatos permitidos: JPG, PNG, GIF, WEBP. Tamaño máximo: 2MB'
+    )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     

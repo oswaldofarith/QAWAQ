@@ -1,0 +1,48 @@
+{% load monitor_extras %}
+<div class="table-responsive">
+    <table class="table table-custom table-hover mb-0">
+        <thead>
+            <tr>
+                <th class="ps-4">ID</th>
+                <th>DIRECCIÓN IP</th>
+
+                <th>TIPO</th>
+                <th>MARCA</th>
+                <th>MEDIO</th>
+                <th>PORCIONES</th>
+                <th>COMUNICACIÓN</th>
+                <th>ÚLTIMA COM.</th>
+
+                <th class="text-end pe-4">ACCIONES</th>
+            </tr>
+        </thead>
+        <tbody id="equipos-table-body">
+            {% include 'monitor/partials/equipo_list_rows.html' %}
+        </tbody>
+    </table>
+</div>
+<!-- Pagination (Simple) -->
+<div class="p-3 border-top border-secondary border-opacity-25 d-flex justify-content-between align-items-center">
+    <span class="text-secondary small">Mostrando {{ page_obj.start_index }} a {{ page_obj.end_index }} de {{ page_obj.paginator.count }} resultados</span>
+    <div>
+        {% if page_obj.has_previous %}
+        <button class="btn btn-outline-secondary btn-sm me-1"
+            hx-get="{% url 'equipo_list' %}?page={{ page_obj.previous_page_number }}"
+            hx-target="#equipos-list-container"
+            hx-swap="innerHTML"
+            hx-include="[name='q'], [name='marca'], [name='medio'], [name='estado'], [name='tipo'], [name='comunicacion'], [name='porcion']">
+            Anterior
+        </button>
+        {% endif %}
+
+        {% if page_obj.has_next %}
+        <button class="btn btn-outline-secondary btn-sm"
+            hx-get="{% url 'equipo_list' %}?page={{ page_obj.next_page_number }}" 
+            hx-target="#equipos-list-container"
+            hx-swap="innerHTML"
+            hx-include="[name='q'], [name='marca'], [name='medio'], [name='estado'], [name='tipo'], [name='comunicacion'], [name='porcion']">
+            Siguiente
+        </button>
+        {% endif %}
+    </div>
+</div>

@@ -1,32 +1,52 @@
 {% load static %}
 <!DOCTYPE html>
-<html lang="es" data-bs-theme="dark">
+<html lang="es" data-bs-theme="light">
 
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Login - QAWAQ Network Monitor</title>
+    <title>Login - QAWAQ Vigilante AMI</title>
+    
+    <!-- Favicon -->
+    <link rel="icon" type="image/svg+xml" href="{% static 'images/logo-small.svg' %}">
+    
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
     <link rel="stylesheet" href="{% static 'css/style.css' %}">
+    
+    <style>
+        body {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+        .login-card {
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.1);
+        }
+        .logo-container {
+            background: white;
+            border-radius: 16px;
+            padding: 2rem;
+            margin-bottom: 2rem;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+        }
+    </style>
 </head>
 
-<body class="bg-dark">
+<body>
     <div class="container">
         <div class="row min-vh-100 align-items-center justify-content-center">
             <div class="col-md-5 col-lg-4">
                 <!-- Logo/Brand -->
-                <div class="text-center mb-4">
-                    <div class="mb-3">
-                        <i class="bi bi-diagram-3-fill text-primary" style="font-size: 4rem;"></i>
-                    </div>
-                    <h2 class="text-white fw-bold mb-1">QAWAQ</h2>
-                    <p class="text-secondary">Network Monitor</p>
+                <div class="text-center logo-container">
+                    <img src="{% static 'images/logo.svg' %}" alt="QAWAQ" style="width: 200px; height: auto;">
+                    <p class="text-muted mt-3 mb-0">VIGILANTE AMI</p>
                 </div>
 
                 <!-- Login Card -->
-                <div class="card-dashboard p-4">
-                    <h5 class="text-white mb-4">Iniciar Sesión</h5>
+                <div class="login-card p-4">
+                    <h5 class="text-dark mb-4">Iniciar Sesión</h5>
 
                     {% if messages %}
                     {% for message in messages %}
@@ -48,23 +68,23 @@
                         {% csrf_token %}
 
                         <div class="mb-3">
-                            <label for="username" class="form-label text-white">Usuario</label>
+                            <label for="username" class="form-label text-dark">Usuario</label>
                             <div class="input-group">
-                                <span class="input-group-text bg-dark border-secondary">
+                                <span class="input-group-text bg-light border">
                                     <i class="bi bi-person text-secondary"></i>
                                 </span>
-                                <input type="text" class="form-control bg-dark border-secondary text-white"
+                                <input type="text" class="form-control border"
                                     id="username" name="username" placeholder="Ingrese su usuario" autofocus required>
                             </div>
                         </div>
 
                         <div class="mb-3">
-                            <label for="password" class="form-label text-white">Contraseña</label>
+                            <label for="password" class="form-label text-dark">Contraseña</label>
                             <div class="input-group">
-                                <span class="input-group-text bg-dark border-secondary">
+                                <span class="input-group-text bg-light border">
                                     <i class="bi bi-lock text-secondary"></i>
                                 </span>
-                                <input type="password" class="form-control bg-dark border-secondary text-white"
+                                <input type="password" class="form-control border"
                                     id="password" name="password" placeholder="Ingrese su contraseña" required>
                             </div>
                         </div>
@@ -90,8 +110,8 @@
 
                 <!-- Footer -->
                 <div class="text-center mt-4">
-                    <small class="text-secondary">
-                        © 2026 QAWAQ Network Monitor
+                    <small class="text-white" style="text-shadow: 0 2px 4px rgba(0,0,0,0.3);">
+                        © 2026 QAWAQ Vigilante AMI
                     </small>
                 </div>
             </div>

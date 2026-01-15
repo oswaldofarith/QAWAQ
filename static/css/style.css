@@ -39,14 +39,62 @@ body {
 .sidebar {
     background-color: var(--bg-sidebar);
     border-right: 1px solid var(--border-color);
-    width: 250px;
+    width: 250px !important;
+    max-width: 250px !important;
+    flex: none !important;
     transition: width 0.3s ease, background-color 0.3s, border-color 0.3s;
-    position: relative;
-    min-height: 100vh;
+    position: fixed;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    overflow-y: auto;
+    z-index: 1000;
+    cursor: e-resize;
+}
+
+/* Visual indicator on right border */
+.sidebar::after {
+    content: '';
+    position: absolute;
+    right: 0;
+    top: 0;
+    bottom: 0;
+    width: 10px;
+    background: transparent;
+    transition: background-color 0.2s;
+}
+
+.sidebar:hover::after {
+    background: linear-gradient(90deg, transparent, var(--accent-blue) 50%, transparent);
+    opacity: 0.3;
+}
+
+/* Logo color adaptation for dark/light mode */
+[data-bs-theme="dark"] .sidebar-logo {
+    filter: invert(1) brightness(2);
+}
+
+[data-bs-theme="light"] .sidebar-logo {
+    filter: none;
+}
+
+/* Show/hide logos based on sidebar state */
+.sidebar-logo-small {
+    display: none !important;
+}
+
+.sidebar.collapsed .sidebar-logo-full {
+    display: none !important;
+}
+
+.sidebar.collapsed .sidebar-logo-small {
+    display: block !important;
+    margin: 0 auto;
 }
 
 .sidebar.collapsed {
-    width: 80px;
+    width: 80px !important;
+    max-width: 80px !important;
 }
 
 /* Toggle button - hamburger menu */
@@ -85,11 +133,29 @@ body {
 .sidebar.collapsed h5,
 .sidebar.collapsed small,
 .sidebar.collapsed .flex-grow-1,
-.sidebar.collapsed .dropdown-toggle::after {
+.sidebar.collapsed .sidebar-subtitle {
     opacity: 0;
     width: 0;
     overflow: hidden;
     display: none;
+}
+
+/* Center logo when collapsed */
+.sidebar.collapsed .sidebar-logo {
+    margin: 0 auto;
+}
+
+/* Hide only the arrow, but keep the link clickable */
+.sidebar.collapsed .dropdown-toggle::after {
+    display: none;
+}
+
+/* Keep dropdown toggle span visible but hide text with visibility instead of display:none */
+.sidebar.collapsed .dropdown-toggle span {
+    display: inline !important;
+    font-size: 0;
+    width: auto;
+    opacity: 1;
 }
 
 /* Adjust icons and layout when collapsed */
@@ -102,16 +168,53 @@ body {
     margin-right: 0;
 }
 
+/* Make dropdown toggle full width and clickable */
+.sidebar.collapsed .nav-link.dropdown-toggle {
+    width: 100%;
+    display: flex !important;
+    align-items: center;
+    justify-content: center;
+}
+
 .sidebar.collapsed .px-3 {
     padding-left: 0 !important;
     padding-right: 0 !important;
     text-align: center;
 }
 
+
+/* Position dropdown parent for proper menu placement when collapsed */
+.sidebar.collapsed .nav-item.dropdown {
+    position: relative !important;
+}
+
+.sidebar.collapsed .dropdown {
+    position: relative !important;
+}
+
 .sidebar.collapsed .dropdown-menu {
-    position: absolute !important;
-    left: 100% !important;
-    top: 0 !important;
+    position: fixed !important;
+    left: 85px !important;
+    top: auto !important;
+    margin: 0 !important;
+    min-width: 200px !important;
+    max-width: 250px !important;
+    width: auto !important;
+    transform: none !important;
+    right: auto !important;
+    z-index: 9999 !important;
+}
+
+.sidebar.collapsed .dropdown-menu.show {
+    display: block !important;
+}
+
+/* Keep avatar circular when collapsed */
+.sidebar.collapsed .rounded-circle,
+.sidebar.collapsed img.rounded-circle {
+    min-width: 40px;
+    min-height: 40px;
+    flex-shrink: 0;
 }
 
 .sidebar .nav-link {
@@ -276,4 +379,19 @@ body.sidebar-collapsed main {
     width: calc(100% - 80px) !important;
     flex: 0 0 calc(100% - 80px) !important;
     max-width: 100% !important;
+}
+
+/* Main content margin for fixed sidebar */
+main {
+    margin-left: 250px !important;
+    width: calc(100% - 250px) !important;
+    max-width: calc(100% - 250px) !important;
+    flex: none !important;
+    transition: margin-left 0.3s ease, width 0.3s ease;
+}
+
+body.sidebar-collapsed main {
+    margin-left: 80px !important;
+    width: calc(100% - 80px) !important;
+    max-width: calc(100% - 80px) !important;
 }

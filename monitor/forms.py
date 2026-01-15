@@ -407,7 +407,7 @@ class MyProfileForm(forms.ModelForm):
     )
     email = forms.EmailField(
         required=True,
-        label='Correo Electr��nico',
+        label='Correo Electrónico',
         widget=forms.EmailInput(attrs={
             'class': 'form-control',
             'placeholder': 'tu@email.com'
@@ -440,7 +440,7 @@ class MyProfileForm(forms.ModelForm):
         """Validate email uniqueness (excluding current user)."""
         email = self.cleaned_data.get('email')
         if User.objects.filter(email=email).exclude(pk=self.user.pk).exists():
-            raise ValidationError('Este correo electr��nico ya est�� en uso por otro usuario.')
+            raise ValidationError('Este correo electrónico ya está en uso por otro usuario.')
         return email
     
     def save(self, commit=True):
