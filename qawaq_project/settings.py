@@ -11,14 +11,14 @@ from sentry_sdk.integrations.django import DjangoIntegration
 SENTRY_DSN = config('SENTRY_DSN', default='')
 DEBUG = config('DEBUG', default=True, cast=bool)
 
-if SENTRY_DSN and not DEBUG:
-    sentry_sdk.init(
-        dsn=SENTRY_DSN,
-        integrations=[DjangoIntegration()],
-        environment=config('ENVIRONMENT', default='production'),
-        traces_sample_rate=0.1,  # 10% of transactions for performance monitoring
-        send_default_pii=False,  # Don't send personally identifiable information
-    )
+# if SENTRY_DSN and not DEBUG:
+#     sentry_sdk.init(
+#         dsn=SENTRY_DSN,
+#         integrations=[DjangoIntegration()],
+#         environment=config('ENVIRONMENT', default='production'),
+#         traces_sample_rate=0.1,  # 10% of transactions for performance monitoring
+#         send_default_pii=False,  # Don't send personally identifiable information
+#     )
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/
@@ -29,7 +29,7 @@ SECRET_KEY = config('SECRET_KEY', default='django-insecure-7=f!kfq48(a0ke^go^(dm
 # SECURITY WARNING: don't run with debug turned on in production!
 # DEBUG already defined above for Sentry
 
-ALLOWED_HOSTS = config('ALLOWED_HOSTS', default='localhost,127.0.0.1', cast=Csv())
+ALLOWED_HOSTS = config('ALLOWED_HOSTS', default='localhost,127.0.0.1,172.23.20.44', cast=Csv())
 
 # Application definition
 
@@ -40,6 +40,7 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'django.contrib.humanize',
     # Third party
     'django_q',
     'django_htmx',
@@ -126,6 +127,11 @@ TIME_ZONE = 'America/Guayaquil'
 USE_I18N = True
 
 USE_TZ = True
+
+# Formatting
+USE_THOUSAND_SEPARATOR = True
+THOUSAND_SEPARATOR = '.'
+DECIMAL_SEPARATOR = ','
 
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/5.2/howto/static-files/
@@ -232,23 +238,36 @@ ALERT_OFFLINE_THRESHOLD = config('ALERT_OFFLINE_THRESHOLD', default=30, cast=int
 # Redis Cache Configuration
 REDIS_URL = config('REDIS_URL', default='redis://127.0.0.1:6379/1')
 
-CACHES = {
-    'default': {
-        'BACKEND': 'django_redis.cache.RedisCache',
-        'LOCATION': REDIS_URL,
-        'OPTIONS': {
-            'CLIENT_CLASS': 'django_redis.client.DefaultClient',
-            'PARSER_CLASS': 'redis.connection.HiredisParser',
-            'CONNECTION_POOL_KWARGS': {'max_connections': 50},
-            'SOCKET_CONNECT_TIMEOUT': 5,
-            'SOCKET_TIMEOUT': 5,
-        },
-        'KEY_PREFIX': 'qawaq',
-        'TIMEOUT': 300,  # 5 minutes default
+# Use Redis in production, local memory cache in development
+if DEBUG:
+    # Development: use local memory cache (no Redis needed)
+    CACHES = {
+        'default': {
+            'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
+            'LOCATION': 'qawaq-dev-cache',
+            'OPTIONS': {
+                'MAX_ENTRIES': 1000
+            }
+        }
     }
-}
+else:
+    # Production: use Redis
+    CACHES = {
+        'default': {
+            'BACKEND': 'django_redis.cache.RedisCache',
+            'LOCATION': REDIS_URL,
+            'OPTIONS': {
+                'CLIENT_CLASS': 'django_redis.client.DefaultClient',
+                'CONNECTION_POOL_KWARGS': {'max_connections': 50},
+                'SOCKET_CONNECT_TIMEOUT': 5,
+                'SOCKET_TIMEOUT': 5,
+            },
+            'KEY_PREFIX': 'qawaq',
+            'TIMEOUT': 300,  # 5 minutes default
+        }
+    }
 
-# Use Redis for sessions (optional but recommended for production)
+# Use cache for sessions
 SESSION_ENGINE = 'django.contrib.sessions.backends.cache'
 SESSION_CACHE_ALIAS = 'default'
 
@@ -256,3 +275,5 @@ SESSION_CACHE_ALIAS = 'default'
 CACHE_TTL = 60 * 5  # 5 minutes
 
 
+
+print("DEBUG: Settings loaded successfully")

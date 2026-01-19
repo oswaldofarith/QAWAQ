@@ -89,6 +89,43 @@
                         </div>
                     </div>
 
+                    <!-- New Records Details Table -->
+                    {% if new_count > 0 %}
+                    <div class="mb-4">
+                        <h6 class="text-white mb-3">Equipos nuevos a importar:</h6>
+                        <div class="table-responsive">
+                            <table class="table table-custom table-sm">
+                                <thead>
+                                    <tr>
+                                        <th>Fila</th>
+                                        <th>ID Equipo</th>
+                                        <th>IP</th>
+                                        <th>Marca</th>
+                                        <th>Tipo</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for new in new_records %}
+                                    <tr>
+                                        <td><span class="badge bg-success text-white">{{ new.row }}</span></td>
+                                        <td class="font-monospace">{{ new.data.id_equipo }}</td>
+                                        <td class="font-monospace">{{ new.data.ip }}</td>
+                                        <td>{{ new.data.marca|default:"-" }}</td>
+                                        <td>{{ new.data.tipo|default:"-" }}</td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                            {% if new_records|length > 50 %}
+                            <p class="text-secondary small mb-0">
+                                <i class="bi bi-info-circle me-1"></i>
+                                Mostrando primeros 50 nuevos
+                            </p>
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% endif %}
+
                     <!-- Duplicate Details Table -->
                     <div class="mb-4">
                         <h6 class="text-white mb-3">Equipos duplicados detectados:</h6>

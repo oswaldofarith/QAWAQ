@@ -1,9 +1,10 @@
 {% extends 'base.html' %}
 {% load static %}
 {% load monitor_extras %}
+{% load l10n %}
 
 {% block header_title %}Calendario de Facturación{% endblock %}
-{% block header_subtitle %}{{ mes_nombre }} {{ anio }}{% endblock %}
+{% block header_subtitle %}{{ mes_nombre }} {{ anio|unlocalize }}{% endblock %}
 
 {% block content %}
 <div class="row mb-4">
@@ -13,13 +14,13 @@
             <div class="card-body">
                 <div class="d-flex justify-content-between align-items-center">
                     <a href="{% url 'calendario_mes' prev_anio prev_mes %}" class="btn btn-outline-secondary">
-                        <i class="bi bi-chevron-left"></i> {{ prev_mes|stringformat:"02d" }}/{{ prev_anio }}
+                        <i class="bi bi-chevron-left"></i> {{ prev_mes|stringformat:"02d" }}/{{ prev_anio|unlocalize }}
                     </a>
                     
-                    <h4 class="mb-0">{{ mes_nombre }} {{ anio }}</h4>
+                    <h4 class="mb-0">{{ mes_nombre }} {{ anio|unlocalize }}</h4>
                     
                     <a href="{% url 'calendario_mes' next_anio next_mes %}" class="btn btn-outline-secondary">
-                        {{ next_mes|stringformat:"02d" }}/{{ next_anio }} <i class="bi bi-chevron-right"></i>
+                        {{ next_mes|stringformat:"02d" }}/{{ next_anio|unlocalize }} <i class="bi bi-chevron-right"></i>
                     </a>
                 </div>
                 

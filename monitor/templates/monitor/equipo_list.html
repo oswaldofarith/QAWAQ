@@ -32,7 +32,7 @@
                     <i class="bi bi-search"></i>
                 </span>
                 <input type="text" name="q" class="form-control bg-dark border-secondary text-white ps-5"
-                    placeholder="Buscar por ID, Hostname o Dirección IP..." value="{{ request.GET.q|default:'' }}"
+                    placeholder="Buscar por ID o Dirección IP" value="{{ request.GET.q|default:'' }}"
                     hx-get="{% url 'equipo_list' %}"
                     hx-trigger="keyup changed delay:500ms" hx-target="#equipos-list-container" hx-swap="innerHTML"
                     hx-include="[name='marca'], [name='medio'], [name='estado'], [name='tipo'], [name='comunicacion'], [name='porcion']"

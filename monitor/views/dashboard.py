@@ -111,6 +111,7 @@ class DashboardView(TemplateView):
             # 2. Determine Billing Status
             billing_date = None
             billing_priority = False # True if Today or Tomorrow
+            billing_sort_priority = 0 # 2=Today, 1=Tomorrow, 0=Others
             billing_label = "-"
             
             # Check all associated portions for this device
@@ -142,9 +143,11 @@ class DashboardView(TemplateView):
                 if delta_days == 0:
                     billing_label = "Hoy"
                     billing_priority = True
+                    billing_sort_priority = 2
                 elif delta_days == 1:
                     billing_label = "Mañana"
                     billing_priority = True
+                    billing_sort_priority = 1
                 elif delta_days < 7:
                     # Show Day Name
                     billing_label = days_es[billing_date.weekday()]
@@ -170,6 +173,7 @@ class DashboardView(TemplateView):
                     'downtime': downtime_str,
                     'downtime_seconds': downtime_seconds, # For sorting
                     'billing_priority': billing_priority, # For sorting
+                    'billing_sort_priority': billing_sort_priority,
                     'billing_label': billing_label,
                     'afectacion_count': afectacion_count,
                     'afectacion_str': afectacion_str,
@@ -180,7 +184,7 @@ class DashboardView(TemplateView):
         # Primary: billing_priority (True > False) -> Reverse=True handles this? True=1, False=0. Yes.
         # Secondary: downtime_seconds (Biggest > Smallest) -> Reverse=True
         
-        offline_devices.sort(key=lambda x: (x['billing_priority'], x['downtime_seconds']), reverse=True)
+        offline_devices.sort(key=lambda x: (x['billing_sort_priority'], x['downtime_seconds']), reverse=True)
             
         context['offline_list'] = offline_devices # Show all devices with billing priority (no limit)
         context['total_monitored'] = Equipo.objects.count()

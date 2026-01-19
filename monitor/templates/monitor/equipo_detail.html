@@ -1,8 +1,8 @@
 {% extends 'base.html' %}
+{% load monitor_extras %}
 
 {% block header_title %}{{ equipo.id_equipo }}{% endblock %}
-{% block header_subtitle %}{{ equipo.tipo }} {{ equipo.marca }} • Última actualización: {{ equipo.last_seen|timesince }}
-atrás{% endblock %}
+{% block header_subtitle %}{{ equipo.tipo }} {{ equipo.marca }} • Última actualización: {{ equipo.last_seen|human_time }}{% endblock %}
 
 {% block content %}
 <!-- Header Actions & Status -->

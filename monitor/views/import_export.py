@@ -13,6 +13,8 @@ from django.db import transaction
 from ..forms import EquipoImportForm
 from ..models import Equipo, Marca, TipoEquipo, Medidor, Porcion
 from ..decorators import admin_required_method
+from django.core.validators import validate_ipv46_address
+from django.core.exceptions import ValidationError
 
 @admin_required_method
 class ImportEquiposView(View):
@@ -24,155 +26,143 @@ class ImportEquiposView(View):
         return render(request, 'monitor/import_equipos.html', {'form': form})
     
     def post(self, request):
-        """Process the uploaded XLSX file."""
-        form = EquipoImportForm(request.POST, request.FILES)
-        
-        if not form.is_valid():
-            return render(request, 'monitor/import_equipos.html', {'form': form})
-        
-        archivo = request.FILES['archivo_xlsx']
-        
-        # Import logic
-        from openpyxl import load_workbook
-        from django.db import transaction
-        
-        # Save uploaded file temporarily
-        with tempfile.NamedTemporaryFile(delete=False, suffix='.xlsx') as tmp_file:
-            for chunk in archivo.chunks():
-                tmp_file.write(chunk)
-            tmp_file_path = tmp_file.name
-        
+        """Process the uploaded XLSX file or confirm import."""
+        tmp_file_path = None
+        form = None
+
+        # 1. Determine mode (Upload vs Confirm) and get file path
+        if request.POST.get('confirm_import') == 'true':
+            # Confirmation Mode: Use existing temp file
+            tmp_file_path = request.session.get('import_temp_file')
+            if not tmp_file_path or not os.path.exists(tmp_file_path):
+                messages.error(request, "La sesión de importación ha expirado. Por favor suba el archivo nuevamente.")
+                return redirect('import_equipos')
+        else:
+            # Upload Mode: Process new file
+            form = EquipoImportForm(request.POST, request.FILES)
+            if not form.is_valid():
+                return render(request, 'monitor/import_equipos.html', {'form': form})
+            
+            archivo = request.FILES['archivo_xlsx']
+            with tempfile.NamedTemporaryFile(delete=False, suffix='.xlsx') as tmp_file:
+                for chunk in archivo.chunks():
+                    tmp_file.write(chunk)
+                tmp_file_path = tmp_file.name
+            
+            # Store path in session
+            request.session['import_temp_file'] = tmp_file_path
+
+        # 2. Parse and Validate File
         try:
-            # Load workbook with openpyxl (handles UTF-8 automatically)
+            from openpyxl import load_workbook
             workbook = load_workbook(tmp_file_path, data_only=True)
             sheet = workbook.active
             
-            # Parse headers (first row)
+            # Parse headers
             headers_row = list(sheet.iter_rows(min_row=1, max_row=1, values_only=True))[0]
             if not headers_row:
-                return render(request, 'monitor/import_equipos.html', {
-                    'form': form,
+                 # If empty, delete temp and return error
+                 if os.path.exists(tmp_file_path): os.unlink(tmp_file_path)
+                 return render(request, 'monitor/import_equipos.html', {
+                    'form': form or EquipoImportForm(),
                     'error': 'El archivo está vacío o no tiene encabezados.'
-                })
+                 })
             
-            # Normalize headers (lowercase, strip whitespace)
             headers = {self._normalize_header(h): idx for idx, h in enumerate(headers_row) if h}
             
-            # Track results for preview
             duplicates = []
             new_records = []
             errors = []
             
-            # Process data rows (skip header)
             for row_idx, row in enumerate(sheet.iter_rows(min_row=2, values_only=True), start=2):
                 try:
-                    # Skip completely empty rows
                     if all(cell is None or str(cell).strip() == '' for cell in row):
                         continue
                     
-                    # Extract data from row
                     equipo_data = self._extract_row_data(headers, row, row_idx)
                     
-                    # Validate required fields
+                    # Core Validation
                     if not equipo_data.get('id_equipo'):
-                        errors.append({
-                            'row': row_idx,
-                            'error': 'Campo requerido "ID Equipo" está vacío.'
-                        })
+                        errors.append({'row': row_idx, 'error': 'Campo requerido "ID Equipo" está vacío.'})
                         continue
                     
                     if not equipo_data.get('ip'):
-                        errors.append({
+                        errors.append({'row': row_idx, 'error': 'Campo requerido "IP" está vacío.'})
+                        continue
+
+                    # IP Format Validation
+                    try:
+                        validate_ipv46_address(equipo_data['ip'])
+                    except ValidationError:
+                        errors.append({'row': row_idx, 'error': f'Formato de IP inválido: {equipo_data["ip"]}'})
+                        continue
+
+                    # Check for duplicates (File vs DB)
+                    existing = Equipo.objects.filter(id_equipo=equipo_data['id_equipo']).first()
+                    if not existing:
+                        existing = Equipo.objects.filter(ip=equipo_data['ip']).first()
+                    
+                    if existing:
+                        duplicates.append({
                             'row': row_idx,
-                            'error': 'Campo requerido "IP" está vacío.'
+                            'id_equipo': equipo_data['id_equipo'],
+                            'existing_ip': existing.ip,
+                            'import_ip': equipo_data['ip'],
+                            'existing_marca': existing.marca.nombre if existing.marca else '-',
+                            'import_marca': equipo_data.get('marca', '-'),
+                            'data': equipo_data
                         })
-                        continue
-                    
-                    # Check for duplicates
-                    if Equipo.objects.filter(id_equipo=equipo_data['id_equipo']).exists():
-                        duplicates.append(equipo_data)
-                        continue
-                    
-                    if Equipo.objects.filter(ip=equipo_data['ip']).exists():
-                        duplicates.append(equipo_data)
-                        continue
-                    
-                    # Add to new records for processing
-                    new_records.append(equipo_data)
+                    else:
+                        new_records.append({
+                            'row': row_idx,
+                            'data': equipo_data
+                        })
                 
                 except Exception as e:
-                    errors.append({
-                        'row': row_idx,
-                        'error': f'Error al procesar fila: {str(e)}'
-                    })
-            
+                    errors.append({'row': row_idx, 'error': f'Error procesando fila: {str(e)}'})
+
             workbook.close()
-            
-            # Check if this is confirmation step
+
+            # 3. Branching Logic
             if request.POST.get('confirm_import') == 'true':
+                # EXECUTE IMPORT
                 duplicate_action = request.POST.get('duplicate_action', 'skip')
-                stats = self._execute_import_with_action(
-                    duplicates, new_records, errors, duplicate_action
-                )
                 
-                # Clear session and temp file
-                if 'import_temp_file' in request.session:
-                    temp_file = request.session['import_temp_file']
-                    if os.path.exists(temp_file):
-                        os.unlink(temp_file)
-                    del request.session['import_temp_file']
+                # Execute logic
+                stats = self._execute_import_with_action(duplicates, new_records, errors, duplicate_action)
                 
-                # Show summary page
-                return render(request, 'monitor/equipment_import_summary.html', {
-                    'stats': stats,
-                    'success': True
-                })
-            
-            # Store temp file path in session for confirmation
-            request.session['import_temp_file'] = tmp_file_path
-            
-            # If no duplicates found, execute immediately
-            if not duplicates:
-                duplicate_action = 'skip'  # No duplicates to handle
-                stats = self._execute_import_with_action(
-                    [], new_records, errors, duplicate_action
-                )
-                
-                # Clean up
+                # Cleanup
                 if os.path.exists(tmp_file_path):
                     os.unlink(tmp_file_path)
+                if 'import_temp_file' in request.session:
+                    del request.session['import_temp_file']
                 
-                # Show summary page
-                return render(request, 'monitor/equipment_import_summary.html', {
-                    'stats': stats,
-                    'success': True
-                })
+                return render(request, 'monitor/equipment_import_summary.html', {'stats': stats, 'success': True})
             
-            # Show preview with duplicates
-            return render(request, 'monitor/import_equipos.html', {
-                'form': form,
-                'show_preview': True,
-                'duplicate_count': len(duplicates),
-                'new_count': len(new_records),
-                'error_count': len(errors),
-                'duplicates': duplicates[:50],
-                'total_duplicates': len(duplicates),
-                'validation_errors': errors[:20],
-                # Store data for step 2
-                'duplicates_data': duplicates,
-                'new_records_data': new_records,
-            })
-        
+            else:
+                # PREVIEW (Always shown for initial upload)
+                return render(request, 'monitor/import_equipos.html', {
+                    'form': form or EquipoImportForm(),
+                    'show_preview': True,
+                    'duplicate_count': len(duplicates),
+                    'new_count': len(new_records),
+                    'error_count': len(errors),
+                    'duplicates': duplicates,
+                    'new_records': new_records,
+                    'validation_errors': errors,
+                    'total_duplicates': len(duplicates),
+                })
+
         except Exception as e:
-            return render(request, 'monitor/import_equipos.html', {
-                'form': form,
-                'error': f'Error al procesar el archivo: {str(e)}'
-            })
-        
-        finally:
-            # Clean up temp file
-            if os.path.exists(tmp_file_path):
+            # General Error Handling
+            if tmp_file_path and os.path.exists(tmp_file_path):
                 os.unlink(tmp_file_path)
+            
+            msg = f'Error inesperado: {str(e)}'
+            return render(request, 'monitor/import_equipos.html', {
+                'form': form or EquipoImportForm(),
+                'error': msg
+            })
     
     def _normalize_header(self, header):
         """Normalize header names for case-insensitive matching."""

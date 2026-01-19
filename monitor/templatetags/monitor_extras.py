@@ -18,7 +18,6 @@ def human_time(value):
         return "-"
 
     now = timezone.now()
-    # Ensure value is aware if now is aware
     if now.tzinfo and not value.tzinfo:
         value = timezone.make_aware(value, now.tzinfo)
     
@@ -26,34 +25,34 @@ def human_time(value):
     seconds = diff.total_seconds()
 
     if seconds < 60:
-        return "Recién"
-    
-    minutes = seconds // 60
-    if minutes < 60:
-        return f"hace {int(minutes)} min"
+        return "recién"
 
-    # Check for yesterday
-    # We need to check calendar days, not just 24h chunks for "ayer"
     local_now = timezone.localtime(now)
     local_value = timezone.localtime(value)
     
     today_start = local_now.replace(hour=0, minute=0, second=0, microsecond=0)
     yesterday_start = today_start - timedelta(days=1)
-    
+    week_start = today_start - timedelta(days=6) # Last 6 days + today = 7 days window
+
+    time_str = local_value.strftime('%H:%M')
+
     if local_value >= today_start:
-        # It's today but > 1 hour ago
-        hours = minutes // 60
-        return f"hace {int(hours)} h"
+        return f"hoy a las {time_str}"
         
-    if local_value >= yesterday_start and local_value < today_start:
-        return f"ayer a la {local_value.strftime('%H:%M')}"
+    if local_value >= yesterday_start:
+        return f"ayer a las {time_str}"
         
-    days = diff.days
-    if days < 7:
-        return f"hace {days} días"
+    if local_value >= week_start:
+        # Get Spanish day name
+        days_map = {
+            0: 'lunes', 1: 'martes', 2: 'miércoles', 3: 'jueves', 
+            4: 'viernes', 5: 'sábado', 6: 'domingo'
+        }
+        day_name = days_map[local_value.weekday()]
+        return f"el {day_name} a las {time_str}"
         
     # Older than a week
-    return local_value.strftime("%d/%m/%y")
+    return local_value.strftime("%d/%m/%y a las %H:%M")
 
 @register.filter
 def get_item(dictionary, key):

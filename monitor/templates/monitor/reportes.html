@@ -5,6 +5,7 @@
 
 {% load monitor_extras %}
 {% load l10n %}
+{% load humanize %}
 
 {% block content %}
 <!-- Top Controls -->
@@ -163,10 +164,10 @@
                     </td>
                     <td class="text-white small" style="vertical-align: middle;">
                         {% if equipo.downtime_count > 0 %}
-                        {{ equipo.downtime_count }} muestras
+                        {{ equipo.downtime_count|intcomma }} muestra{% if equipo.downtime_count != 1 %}s{% endif %}
                         {% comment %} Ideally convert samples to time based on interval {% endcomment %}
                         {% else %}
-                        0s
+                        -
                         {% endif %}
                     </td>
                     <td class="text-end pe-4" style="vertical-align: middle;">
