@@ -1,4 +1,4 @@
-from .dashboard import DashboardView
+from .dashboard import *
 from .equipment import *
 from .reports import *
 from .import_export import *

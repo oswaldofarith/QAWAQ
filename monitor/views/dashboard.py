@@ -1,4 +1,5 @@
 from django.views.generic import TemplateView
+from django.contrib.auth.mixins import LoginRequiredMixin
 from django.db.models import Count, Avg, Q
 from django.utils import timezone
 from django.core.serializers.json import DjangoJSONEncoder
@@ -211,3 +212,82 @@ class DashboardView(TemplateView):
         context['eventos_manana'] = list(eventos_manana)
 
         return context
+
+class NOCView(LoginRequiredMixin, TemplateView):
+    template_name = 'monitor/noc_view.html'
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        now = timezone.now()
+        start_24h = now - datetime.timedelta(hours=24)
+        
+        # 1. Global Stats
+        context['total_equipos'] = Equipo.objects.count()
+        context['online_count'] = Equipo.objects.filter(is_online=True).count()
+        context['offline_count'] = Equipo.objects.filter(is_online=False).count()
+        
+        # 2. Daily Failure Count (total checks that resulted in OFFLINE in last 24h)
+        context['failures_24h'] = HistorialDisponibilidad.objects.filter(
+            timestamp__gte=start_24h,
+            estado='OFFLINE'
+        ).count()
+
+        # 3. Active Failures List (Critical first)
+        active_failures = Equipo.objects.filter(
+            is_online=False, 
+            estado='ACTIVO'
+        ).select_related('marca', 'tipo').prefetch_related('medidores_asociados__porcion')
+        
+        # Enriched failure list for NOC
+        failure_list = []
+        for dev in active_failures:
+            downtime_str = "N/A"
+            if dev.last_seen:
+                diff = now - dev.last_seen
+                total_seconds = int(diff.total_seconds())
+                hours = total_seconds // 3600
+                minutes = (total_seconds % 3600) // 60
+                downtime_str = f"{hours:02}:{minutes:02}"
+            
+            # Determine priority based on portion types
+            is_critical = dev.medidores_asociados.filter(porcion__tipo='ESPECIAL').exists()
+            
+            failure_list.append({
+                'id_equipo': dev.id_equipo,
+                'ip': dev.ip,
+                'marca': dev.marca.nombre if dev.marca else 'N/A',
+                'tipo': dev.tipo.nombre if dev.tipo else 'N/A',
+                'downtime': downtime_str,
+                'is_critical': is_critical,
+                'porcion_nombres': [p.nombre for p in dev.medidores_asociados.all()[:2]] # Just for display
+            })
+
+        # Sort: Critical first, then by downtime
+        failure_list.sort(key=lambda x: (x['is_critical'], x['downtime']), reverse=True)
+        context['active_failures'] = failure_list
+
+        # 4. Heatmap Data (Brands with most failures)
+        brand_fails = Equipo.objects.filter(is_online=False).values('marca__nombre').annotate(
+            count=Count('id')
+        ).order_by('-count')
+        context['brand_fails_json'] = json.dumps(list(brand_fails), cls=DjangoJSONEncoder)
+
+        # 5. Hourly Failure Trend (Last 24h)
+        current_tz = timezone.get_current_timezone()
+        failure_trend = HistorialDisponibilidad.objects.filter(
+            timestamp__gte=start_24h,
+            estado='OFFLINE'
+        ).annotate(
+            hour=TruncHour('timestamp', output_field=DateTimeField(), tzinfo=current_tz)
+        ).values('hour').annotate(
+            count=Count('id')
+        ).order_by('hour')
+
+        trend_labels = [item['hour'].strftime('%H:%M') for item in failure_trend]
+        trend_values = [item['count'] for item in failure_trend]
+        
+        context['trend_labels_json'] = json.dumps(trend_labels)
+        context['trend_values_json'] = json.dumps(trend_values)
+
+        return context
+

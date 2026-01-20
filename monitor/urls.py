@@ -10,6 +10,7 @@ urlpatterns = [
     
     # Dashboard
     path('', views.DashboardView.as_view(), name='dashboard'),
+    path('noc/', views.NOCView.as_view(), name='noc_view'),
     path('equipos/', views.EquipoListView.as_view(), name='equipo_list'),
     path('equipos/nuevo/', views.EquipoCreateView.as_view(), name='equipo_create'),
     path('equipos/<int:pk>/', views.EquipoDetailView.as_view(), name='equipo_detail'),
@@ -26,7 +27,7 @@ urlpatterns = [
     path('equipos/<int:pk>/ping-modal/', views.PingModalView.as_view(), name='ping_modal'),
     path('equipos/<int:pk>/ping-tool/', views.PingToolView.as_view(), name='ping_tool'),
     path('equipos/<int:pk>/traceroute-modal/', views.TracerouteModalView.as_view(), name='traceroute_modal'),
-    path('equipos/<int:pk>/traceroute-tool/', views.TracerouteToolView.as_view(), name='traceroute_tool'),
+    path('equipos/<int:pk>/traceroute-tool/', views.TracerouteToolView.as_view(), name='traceroute_tool'),  # Traceroute functionality
     path('search/', views.GlobalSearchView.as_view(), name='global_search'),
     path('mapa/', views.MapaView.as_view(), name='mapa'),
     
