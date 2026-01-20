@@ -14,3 +14,4 @@ django-redis
 redis
 sentry-sdk
 safety
+PyJWT>=2.8.0

@@ -58,6 +58,7 @@ MIDDLEWARE = [
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
     'django_htmx.middleware.HtmxMiddleware',
+    'qawaq_project.middleware.LicenseEnforcerMiddleware',
 ]
 
 ROOT_URLCONF = 'qawaq_project.urls'
