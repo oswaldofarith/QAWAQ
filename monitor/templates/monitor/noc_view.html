@@ -3,19 +3,33 @@
 
 {% block extra_head %}
 <style>
+    /* NOC Color Variables */
     :root {
-        --noc-bg: #0a0c10;
-        --noc-card: #161b22;
-        --noc-text: #e6edf3;
+        --noc-bg: #f8f9fa;
+        --noc-card: #ffffff;
+        --noc-text: #212529;
+        --noc-border: #dee2e6;
         --noc-online: #238636;
         --noc-offline: #da3633;
         --noc-warning: #d29922;
+        --noc-subtext: #6c757d;
+        --noc-item-bg: #f1f3f5;
+    }
+
+    [data-bs-theme="dark"] {
+        --noc-bg: #0a0c10;
+        --noc-card: #161b22;
+        --noc-text: #e6edf3;
+        --noc-border: #30363d;
+        --noc-subtext: #8b949e;
+        --noc-item-bg: #0d1117;
     }
 
     body {
         background-color: var(--noc-bg) !important;
         color: var(--noc-text);
         overflow: hidden;
+        transition: background-color 0.3s ease, color 0.3s ease;
     }
 
     .noc-container {
@@ -35,14 +49,14 @@
         justify-content: space-between;
         align-items: center;
         padding: 0 2rem;
-        border: 1px solid #30363d;
+        border: 1px solid var(--noc-border);
     }
 
     .counter-card {
         background: var(--noc-card);
         border-radius: 12px;
         padding: 1.5rem;
-        border: 1px solid #30363d;
+        border: 1px solid var(--noc-border);
         display: flex;
         flex-direction: column;
         justify-content: center;
@@ -58,7 +72,7 @@
 
     .counter-label {
         font-size: 0.9rem;
-        color: #8b949e;
+        color: var(--noc-subtext);
         text-transform: uppercase;
         letter-spacing: 1px;
         margin-top: 0.5rem;
@@ -67,13 +81,13 @@
     .failure-stream {
         background: var(--noc-card);
         border-radius: 12px;
-        border: 1px solid #30363d;
+        border: 1px solid var(--noc-border);
         overflow-y: auto;
         padding: 1rem;
     }
 
     .failure-item {
-        background: #0d1117;
+        background: var(--noc-item-bg);
         border-radius: 8px;
         padding: 1rem;
         margin-bottom: 0.8rem;
@@ -82,6 +96,8 @@
         grid-template-columns: auto 1fr auto;
         align-items: center;
         gap: 1rem;
+        border: 1px solid var(--noc-border);
+        border-left-width: 4px;
     }
 
     .failure-item.critical {
@@ -106,15 +122,8 @@
         background: var(--noc-card);
         border-radius: 12px;
         padding: 1rem;
-        border: 1px solid #30363d;
+        border: 1px solid var(--noc-border);
         flex-grow: 1;
-    }
-
-    .status-badge {
-        font-size: 0.75rem;
-        padding: 0.25rem 0.6rem;
-        border-radius: 4px;
-        font-weight: 600;
     }
 
     /* Hide sidebar and navbar for true NOC view */
@@ -138,56 +147,64 @@
 <div class="noc-container">
     <div class="noc-header">
         <div class="d-flex align-items-center gap-3">
-            <img src="{% static 'images/logo.svg' %}" height="40" alt="QAWAQ">
-            <h2 class="mb-0 fw-bold">NOC DASHBOARD</h2>
+            <img id="noc-logo" src="{% static 'images/logo.svg' %}" 
+                 data-light="{% static 'images/logo.svg' %}" 
+                 data-dark="{% static 'images/logo-white.svg' %}" 
+                 height="40" alt="QAWAQ">
+            <h2 class="mb-0 fw-bold">TABLERO NOC</h2>
         </div>
         <div id="clock">00:00:00</div>
         <div class="d-flex gap-4 align-items-center">
             <div class="text-end">
-                <div class="small text-secondary">GLOBAL STATUS</div>
-                <div class="fw-bold text-success">OPERATIONAL</div>
+                <div class="small text-secondary">ESTADO GLOBAL</div>
+                <div class="fw-bold text-success">OPERATIVO</div>
             </div>
-            <button class="btn btn-outline-secondary btn-sm" onclick="toggleAudio()">
-                <i id="audio-icon" class="bi bi-volume-up"></i>
-            </button>
+            <div class="d-flex gap-2">
+                <button class="btn btn-outline-secondary btn-sm" id="nocThemeToggle" title="Cambiar Tema">
+                    <i id="nocThemeIcon" class="bi bi-moon-fill"></i>
+                </button>
+                <button class="btn btn-outline-secondary btn-sm" onclick="toggleAudio()" title="Silenciar/Activar Sonido">
+                    <i id="audio-icon" class="bi bi-volume-up"></i>
+                </button>
+            </div>
         </div>
     </div>
 
     <!-- Counters -->
     <div class="noc-sidebar-left">
         <div class="counter-card">
-            <div class="counter-value text-white">{{ total_equipos }}</div>
-            <div class="counter-label">Monitored</div>
+            <div class="counter-value">{{ total_equipos }}</div>
+            <div class="counter-label">Monitoreados</div>
         </div>
         <div class="counter-card">
             <div class="counter-value text-success">{{ online_count }}</div>
-            <div class="counter-label">Online</div>
+            <div class="counter-label">En Línea</div>
         </div>
         <div class="counter-card" style="border-bottom: 4px solid var(--noc-offline)">
             <div class="counter-value text-danger">{{ offline_count }}</div>
-            <div class="counter-label">Offline</div>
+            <div class="counter-label">Fuera de Línea</div>
         </div>
         <div class="counter-card">
             <div class="counter-value text-warning">{{ failures_24h }}</div>
-            <div class="counter-label">Fails (24h)</div>
+            <div class="counter-label">Fallas (24h)</div>
         </div>
     </div>
 
     <!-- Real-time failure stream -->
     <div class="failure-stream">
         <h5 class="mb-4 text-secondary d-flex justify-content-between">
-            ACTIVE FAILURES
+            FALLAS ACTIVAS
             <span class="badge bg-danger rounded-pill">{{ active_failures|length }}</span>
         </h5>
         
         {% for fail in active_failures %}
         <div class="failure-item {% if fail.is_critical %}critical{% endif %}">
             <div class="text-center px-2">
-                <div class="fw-bold fs-5 text-white">{{ fail.downtime }}</div>
+                <div class="fw-bold fs-5">{{ fail.downtime }}</div>
                 <div class="small text-secondary">HRS</div>
             </div>
             <div>
-                <div class="fw-bold text-white">{{ fail.id_equipo }}</div>
+                <div class="fw-bold">{{ fail.id_equipo }}</div>
                 <div class="small text-secondary">{{ fail.ip }} • {{ fail.marca }}</div>
                 <div class="mt-1">
                     {% for p_name in fail.porcion_nombres %}
@@ -197,7 +214,7 @@
             </div>
             <div class="text-end">
                 {% if fail.is_critical %}
-                <span class="badge bg-danger text-white mb-1">CRITICAL</span>
+                <span class="badge bg-danger text-white mb-1">CRÍTICO</span>
                 {% endif %}
                 <div class="small text-secondary">{{ fail.tipo }}</div>
             </div>
@@ -205,7 +222,7 @@
         {% empty %}
         <div class="h-100 d-flex flex-column align-items-center justify-content-center text-muted opacity-50">
             <i class="bi bi-shield-check fs-1 mb-3"></i>
-            <h5>NO ACTIVE FAILURES</h5>
+            <h5>SIN FALLAS ACTIVAS</h5>
         </div>
         {% endfor %}
     </div>
@@ -213,11 +230,11 @@
     <!-- Charts and Heatmaps -->
     <div class="noc-sidebar-right">
         <div class="chart-container">
-            <h6 class="text-secondary mb-3">FAILURE TREND (24H)</h6>
+            <h6 class="text-secondary mb-3">TENDENCIA DE FALLAS (24H)</h6>
             <div id="trendChart"></div>
         </div>
         <div class="chart-container">
-            <h6 class="text-secondary mb-3">FAILURES BY BRAND</h6>
+            <h6 class="text-secondary mb-3">FALLAS POR MARCA</h6>
             <div id="brandChart"></div>
         </div>
     </div>
@@ -232,6 +249,8 @@
 {{ brand_fails_json|json_script:"brand-fails" }}
 
 <script>
+    let trendChart, brandChart;
+
     function updateClock() {
         const now = new Date();
         document.getElementById('clock').textContent = now.toLocaleTimeString('en-US', { hour12: false });
@@ -246,12 +265,50 @@
         icon.className = audioEnabled ? 'bi bi-volume-up' : 'bi bi-volume-mute';
     }
 
+    // Theme Management
+    const html = document.documentElement;
+    const themeBtn = document.getElementById('nocThemeToggle');
+    const themeIcon = document.getElementById('nocThemeIcon');
+    const logoImg = document.getElementById('noc-logo');
+
+    function applyTheme(theme) {
+        html.setAttribute('data-bs-theme', theme);
+        localStorage.setItem('theme', theme);
+        
+        // Update Icon
+        if (theme === 'dark') {
+            themeIcon.classList.replace('bi-sun-fill', 'bi-moon-fill');
+            logoImg.src = logoImg.getAttribute('data-dark');
+        } else {
+            themeIcon.classList.replace('bi-moon-fill', 'bi-sun-fill');
+            logoImg.src = logoImg.getAttribute('data-light');
+        }
+
+        // Update Charts Theme
+        const chartTheme = theme === 'dark' ? 'dark' : 'light';
+        if (trendChart) trendChart.updateOptions({ theme: { mode: chartTheme } });
+        if (brandChart) brandChart.updateOptions({ theme: { mode: chartTheme } });
+    }
+
+    themeBtn.addEventListener('click', () => {
+        const newTheme = html.getAttribute('data-bs-theme') === 'dark' ? 'light' : 'dark';
+        applyTheme(newTheme);
+    });
+
+    // Initial setup
+    const currentTheme = localStorage.getItem('theme') || 'dark';
+    // Small fix to ensure icon starts correct
+    if (currentTheme === 'light') {
+        themeIcon.classList.replace('bi-moon-fill', 'bi-sun-fill');
+    }
+    applyTheme(currentTheme);
+
     // Trend Chart
     const trendLabels = JSON.parse(document.getElementById('trend-labels').textContent);
     const trendValues = JSON.parse(document.getElementById('trend-values').textContent);
 
     var trendOptions = {
-        series: [{ name: 'Failures', data: trendValues }],
+        series: [{ name: 'Fallas', data: trendValues }],
         chart: { type: 'area', height: 200, toolbar: { show: false }, background: 'transparent' },
         colors: ['#da3633'],
         stroke: { curve: 'smooth', width: 2 },
@@ -259,9 +316,11 @@
         dataLabels: { enabled: false },
         xaxis: { categories: trendLabels, labels: { style: { colors: '#8b949e' } }, axisBorder: { show: false } },
         yaxis: { labels: { style: { colors: '#8b949e' } } },
-        grid: { borderColor: '#30363d', strokeDashArray: 4 }
+        grid: { borderColor: 'rgba(128, 128, 128, 0.1)', strokeDashArray: 4 },
+        theme: { mode: currentTheme }
     };
-    new ApexCharts(document.querySelector("#trendChart"), trendOptions).render();
+    trendChart = new ApexCharts(document.querySelector("#trendChart"), trendOptions);
+    trendChart.render();
 
     // Brand Chart
     const brandFails = JSON.parse(document.getElementById('brand-fails').textContent);
@@ -273,18 +332,21 @@
         stroke: { show: false },
         legend: { position: 'bottom', labels: { colors: '#8b949e' } },
         dataLabels: { enabled: false },
-        plotOptions: { pie: { donut: { size: '75%' } } }
+        plotOptions: { pie: { donut: { size: '75%' } } },
+        theme: { mode: currentTheme }
     };
-    new ApexCharts(document.querySelector("#brandChart"), brandOptions).render();
+    brandChart = new ApexCharts(document.querySelector("#brandChart"), brandOptions);
+    brandChart.render();
 
     // Auto-refresh every 30s
     setTimeout(() => { window.location.reload(); }, 30000);
 
-    // Play sound if failures increased (mock logic for now since we refresh the whole page)
+    // Play sound if failures increased
     {% if offline_count > 0 %}
     if (audioEnabled) {
-        document.getElementById('alert-sound').play().catch(e => console.log('Audio blocked'));
+        document.getElementById('alert-sound').play().catch(e => console.log('Audio bloqueado'));
     }
     {% endif %}
 </script>
 {% endblock %}
+
