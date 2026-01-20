@@ -14,7 +14,7 @@ class LicenseSettingsView(LoginRequiredMixin, UserPassesTestMixin, FormView):
         return self.request.user.profile.role == 'admin'
 
     def get_form_class(self):
-        from ..forms import LicenseUpdateForm
+        from ..license_forms import LicenseUpdateForm
         return LicenseUpdateForm
 
     def get_context_data(self, **kwargs):
