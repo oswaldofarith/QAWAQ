@@ -25,6 +25,8 @@ urlpatterns = [
     path('equipos/<int:pk>/ping/', views.PingDeviceView.as_view(), name='ping_device'),
     path('equipos/<int:pk>/ping-modal/', views.PingModalView.as_view(), name='ping_modal'),
     path('equipos/<int:pk>/ping-tool/', views.PingToolView.as_view(), name='ping_tool'),
+    path('equipos/<int:pk>/traceroute-modal/', views.TracerouteModalView.as_view(), name='traceroute_modal'),
+    path('equipos/<int:pk>/traceroute-tool/', views.TracerouteToolView.as_view(), name='traceroute_tool'),
     path('search/', views.GlobalSearchView.as_view(), name='global_search'),
     path('mapa/', views.MapaView.as_view(), name='mapa'),
     

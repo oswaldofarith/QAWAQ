@@ -274,6 +274,56 @@ class PingToolView(View):
              
         return HttpResponse(html)
 
+
+class TracerouteModalView(View):
+    def get(self, request, pk, *args, **kwargs):
+        device = get_object_or_404(Equipo, pk=pk)
+        return render(request, 'monitor/partials/traceroute_modal.html', {'equipo': device})
+
+
+class TracerouteToolView(View):
+    def get(self, request, pk, *args, **kwargs):
+        import subprocess
+        import platform
+        
+        device = get_object_or_404(Equipo, pk=pk)
+        
+        # Determine traceroute command based on OS
+        if platform.system() == 'Windows':
+            cmd = ['tracert', '-d', '-w', '1000', '-h', '15', device.ip]
+        else:
+            cmd = ['traceroute', '-n', '-w', '1', '-m', '15', device.ip]
+        
+        try:
+            # Execute traceroute command
+            result = subprocess.run(
+                cmd,
+                capture_output=True,
+                text=True,
+                timeout=30,
+                encoding='utf-8',
+                errors='replace'
+            )
+            
+            output = result.stdout if result.stdout else result.stderr
+            
+            # Format output for HTML display
+            html_lines = []
+            for line in output.split('\n'):
+                if line.strip():
+                    # Highlight IP addresses and hop numbers
+                    formatted_line = line.replace('<', '&lt;').replace('>', '&gt;')
+                    html_lines.append(f'<div class="mb-1 text-info">{formatted_line}</div>')
+            
+            html = ''.join(html_lines) if html_lines else '<div class="text-warning">No se recibió salida del comando traceroute.</div>'
+            
+        except subprocess.TimeoutExpired:
+            html = '<div class="text-danger">Tiempo de espera agotado para traceroute.</div>'
+        except Exception as e:
+            html = f'<div class="text-danger">Error al ejecutar traceroute: {str(e)}</div>'
+        
+        return HttpResponse(html)
+
 class MapaView(TemplateView):
     """Vista de mapa interactivo con equipos y su estado."""
     template_name = 'monitor/mapa.html'

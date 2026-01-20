@@ -23,7 +23,11 @@
     <div class="d-flex gap-2">
         <button class="btn btn-outline-success" hx-get="{% url 'ping_modal' equipo.id %}" hx-target="#modal-container"
             hx-swap="innerHTML">
-            <i class="bi bi-broadcast me-2"></i>Ping en Vivo
+            <i class="bi bi-broadcast me-2"></i>Ping
+        </button>
+        <button class="btn btn-outline-info" hx-get="{% url 'traceroute_modal' equipo.id %}" hx-target="#modal-container"
+            hx-swap="innerHTML">
+            <i class="bi bi-sign-turn-right me-2"></i>Ruta
         </button>
         {% if user.profile.role == 'admin' %}
         <a href="{% url 'equipo_update' equipo.pk %}" class="btn btn-outline-primary">
