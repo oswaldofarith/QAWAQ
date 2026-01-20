@@ -77,7 +77,7 @@
     <form method="get" class="row g-3 align-items-end">
         <div class="col-md-2">
             <label class="form-label">Filtrar por Marca</label>
-            <select name="marca" class="form-select">
+            <select name="marca" class="form-select" onchange="this.form.submit()">
                 <option value="">Todas</option>
                 {% for marca in marcas %}
                 <option value="{{ marca.id }}" {% if marca_filter|stringformat:"s" == marca.id|stringformat:"s" %}selected{% endif %}>
@@ -88,7 +88,7 @@
         </div>
         <div class="col-md-2">
             <label class="form-label">Filtrar por Medio</label>
-            <select name="medio" class="form-select">
+            <select name="medio" class="form-select" onchange="this.form.submit()">
                 <option value="">Todos</option>
                 <option value="FIBRA" {% if medio_filter == "FIBRA" %}selected{% endif %}>Fibra</option>
                 <option value="CELULAR" {% if medio_filter == "CELULAR" %}selected{% endif %}>Celular</option>
@@ -96,7 +96,7 @@
         </div>
         <div class="col-md-3">
             <label class="form-label">Filtrar por Porción</label>
-            <select name="porcion" class="form-select">
+            <select name="porcion" class="form-select" onchange="this.form.submit()">
                 <option value="">Todas las porciones</option>
                 {% for porcion in porciones %}
                 <option value="{{ porcion.id }}" {% if porcion_filter|stringformat:"s" == porcion.id|stringformat:"s" %}selected{% endif %}>
@@ -107,19 +107,22 @@
         </div>
         <div class="col-md-2">
             <label class="form-label">Filtrar por Estado</label>
-            <select name="estado" class="form-select">
+            <select name="estado" class="form-select" onchange="this.form.submit()">
                 <option value="">Todos</option>
                 <option value="ONLINE" {% if estado_filter == "ONLINE" %}selected{% endif %}>Online</option>
                 <option value="OFFLINE" {% if estado_filter == "OFFLINE" %}selected{% endif %}>Offline</option>
             </select>
         </div>
         <div class="col-md-3">
-            <button type="submit" class="btn btn-primary w-100">
-                <i class="bi bi-funnel"></i> Aplicar
-            </button>
-            <a href="{% url 'mapa' %}" class="btn btn-outline-secondary w-100 mt-2">
-                <i class="bi bi-x-circle"></i> Limpiar
-            </a>
+            <div class="d-flex gap-2">
+                <a href="{% url 'mapa' %}" class="btn btn-outline-secondary w-100">
+                    <i class="bi bi-x-circle"></i> Limpiar
+                </a>
+                <div class="form-check form-switch bg-dark-subtle border border-secondary rounded p-2 px-3 d-flex align-items-center gap-2" style="min-width: 160px;">
+                    <input class="form-check-input ms-0" type="checkbox" id="clusterToggle" checked>
+                    <label class="form-check-label mb-0 small text-nowrap" for="clusterToggle">Agrupar</label>
+                </div>
+            </div>
         </div>
     </form>
 </div>
@@ -140,76 +143,24 @@
 
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    // Initialize map centered on Guayaquil
+    // 1. Initialize Map
     const map = L.map('map').setView([-2.19, -79.89], 12);
-    
-    // Add OpenStreetMap tiles
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+        attribution: '&copy; OpenStreetMap contributors',
         maxZoom: 19
     }).addTo(map);
-    
-    // Set max bounds to Guayaquil area
-    const guayaquilBounds = [
-        [-2.35, -80.15],  // Southwest
-        [-1.95, -79.65]   // Northeast
-    ];
+
+    const guayaquilBounds = [[-2.35, -80.15], [-1.95, -79.65]];
     map.setMaxBounds(guayaquilBounds);
-    
-    // Create marker cluster group with custom icon function
-    const markers = L.markerClusterGroup({
-        chunkedLoading: true,
-        maxClusterRadius: 50,
-        spiderfyOnMaxZoom: true,
-        showCoverageOnHover: false,
-        zoomToBoundsOnClick: true,
-        iconCreateFunction: function(cluster) {
-            // Get all child markers in this cluster
-            const childMarkers = cluster.getAllChildMarkers();
-            
-            // Count offline and online equipos
-            let offlineCount = 0;
-            let onlineCount = 0;
-            childMarkers.forEach(marker => {
-                // Access the equipment data stored in marker options
-                if (marker.options.equipoData) {
-                    if (marker.options.equipoData.color === 'red') {
-                        offlineCount++;
-                    } else if (marker.options.equipoData.color === 'green') {
-                        onlineCount++;
-                    }
-                }
-            });
-            
-            // Determine cluster color based on new logic
-            let clusterColor;
-            if (offlineCount === 0) {
-                // No offline equipos -> Green
-                clusterColor = '#28a745';
-            } else if (offlineCount <= 2 && onlineCount > 0) {
-                // 1-2 offline AND at least 1 online -> Yellow
-                clusterColor = '#ffc107';
-            } else {
-                // (1-2 offline AND no online) OR (more than 2 offline) -> Red
-                clusterColor = '#dc3545';
-            }
-            
-            // Get total count for display
-            const totalCount = cluster.getChildCount();
-            
-            // Return custom styled icon
-            return L.divIcon({
-                html: '<div style="background-color: ' + clusterColor + ';"><span>' + totalCount + '</span></div>',
-                className: 'marker-cluster-custom',
-                iconSize: L.point(40, 40)
-            });
-        }
-    });
-    
-    // Get equipos data from Django
+
+    // 2. Data from Django
     const equiposData = {{ equipos_json|safe }};
     
-    // Create custom icon function
+    // 3. Layer Managers
+    let clusterGroup = null;
+    let simpleGroup = null;
+
+    // 4. Icon factories
     function createIcon(color) {
         return L.divIcon({
             className: 'custom-div-icon',
@@ -218,69 +169,94 @@ document.addEventListener('DOMContentLoaded', function() {
             iconAnchor: [8, 8]
         });
     }
-    
-    // Add markers for each equipo
-    equiposData.forEach(function(equipo) {
+
+    function getClusterIcon(cluster) {
+        const childMarkers = cluster.getAllChildMarkers();
+        let offlineCount = 0, onlineCount = 0;
+        childMarkers.forEach(marker => {
+            if (marker.options.equipoData.color === 'red') offlineCount++;
+            else if (marker.options.equipoData.color === 'green') onlineCount++;
+        });
+
+        let clusterColor;
+        if (offlineCount === 0) clusterColor = '#28a745';
+        else if (offlineCount <= 2 && onlineCount > 0) clusterColor = '#ffc107';
+        else clusterColor = '#dc3545';
+
+        return L.divIcon({
+            html: `<div style="background-color: ${clusterColor};"><span>${cluster.getChildCount()}</span></div>`,
+            className: 'marker-cluster-custom',
+            iconSize: L.point(40, 40)
+        });
+    }
+
+    function createMarker(equipo) {
         const icon = createIcon(equipo.color);
         const marker = L.marker([equipo.lat, equipo.lng], { 
             icon: icon,
-            equipoData: equipo // Store equipment data in marker options for cluster function
+            equipoData: equipo 
         });
         
-        // Create popup content
         const statusClass = equipo.color === 'green' ? 'status-badge-online' : 'status-badge-offline';
         const popupContent = `
             <div style="min-width: 200px;">
                 <h6 class="mb-2"><i class="bi bi-router"></i> ${equipo.id_equipo}</h6>
                 <table class="table table-sm table-borderless mb-0">
-                    <tr>
-                        <td><strong>Estado:</strong></td>
-                        <td><span class="${statusClass}">${equipo.estado}</span></td>
-                    </tr>
-                    <tr>
-                        <td><strong>IP:</strong></td>
-                        <td class="font-monospace">${equipo.ip}</td>
-                    </tr>
-                    <tr>
-                        <td><strong>Marca:</strong></td>
-                        <td>${equipo.marca}</td>
-                    </tr>
-                    <tr>
-                        <td><strong>Tipo:</strong></td>
-                        <td>${equipo.tipo}</td>
-                    </tr>
-                    <tr>
-                        <td><strong>Comunicación:</strong></td>
-                        <td>${equipo.comunicacion}</td>
-                    </tr>
-                    <tr>
-                        <td><strong>Dirección:</strong></td>
-                        <td>${equipo.direccion}</td>
-                    </tr>
-                    <tr>
-                        <td><strong>Poste:</strong></td>
-                        <td>${equipo.poste}</td>
-                    </tr>
+                    <tr><td><strong>Estado:</strong></td><td><span class="${statusClass}">${equipo.estado}</span></td></tr>
+                    <tr><td><strong>IP:</strong></td><td class="font-monospace">${equipo.ip}</td></tr>
+                    <tr><td><strong>Marca:</strong></td><td>${equipo.marca}</td></tr>
+                    <tr><td><strong>Tipo:</strong></td><td>${equipo.tipo}</td></tr>
                 </table>
                 <div class="mt-2">
                     <a href="/equipos/${equipo.id}/" class="btn btn-sm btn-info w-100" style="color: white;">
-                        <i class="bi bi-info-circle"></i> Ver Detalles
+                        <i class="bi bi-info-circle"></i> Detalles
                     </a>
                 </div>
-            </div>
-        `;
-        
+            </div>`;
         marker.bindPopup(popupContent);
-        markers.addLayer(marker);
-    });
-    
-    // Add cluster group to map
-    map.addLayer(markers);
-    
-    // Fit bounds to show all markers if there are any
-    if (equiposData.length > 0) {
-        map.fitBounds(markers.getBounds(), { padding: [50, 50] });
+        return marker;
     }
+
+    // 5. Render Core
+    function renderMarkers() {
+        // Clear previous layers
+        if (clusterGroup) map.removeLayer(clusterGroup);
+        if (simpleGroup) map.removeLayer(simpleGroup);
+
+        const useClustering = document.getElementById('clusterToggle').checked;
+        localStorage.setItem('mapClustering', useClustering);
+
+        if (useClustering) {
+            clusterGroup = L.markerClusterGroup({
+                chunkedLoading: true,
+                maxClusterRadius: 50,
+                iconCreateFunction: getClusterIcon
+            });
+            equiposData.forEach(e => clusterGroup.addLayer(createMarker(e)));
+            map.addLayer(clusterGroup);
+        } else {
+            simpleGroup = L.layerGroup();
+            equiposData.forEach(e => simpleGroup.addLayer(createMarker(e)));
+            map.addLayer(simpleGroup);
+        }
+
+        // Adjust view if markers exist
+        if (equiposData.length > 0) {
+            const bounds = useClustering ? clusterGroup.getBounds() : L.featureGroup(simpleGroup.getLayers()).getBounds();
+            map.fitBounds(bounds, { padding: [50, 50] });
+        }
+    }
+
+    // 6. Events & Init
+    const toggle = document.getElementById('clusterToggle');
+    const savedSetting = localStorage.getItem('mapClustering');
+    
+    if (savedSetting !== null) {
+        toggle.checked = savedSetting === 'true';
+    }
+
+    toggle.addEventListener('change', renderMarkers);
+    renderMarkers(); // First run
 });
 </script>
 {% endblock %}
