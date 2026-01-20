@@ -296,13 +296,12 @@ class TracerouteToolView(View):
         
         try:
             # Execute traceroute command
+            # Don't specify encoding - let Python use system default (CP850/CP1252 on Windows)
             result = subprocess.run(
                 cmd,
                 capture_output=True,
                 text=True,
-                timeout=30,
-                encoding='utf-8',
-                errors='replace'
+                timeout=30
             )
             
             output = result.stdout if result.stdout else result.stderr
