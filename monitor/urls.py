@@ -42,6 +42,7 @@ urlpatterns = [
     
     # Configuration
     path('configuracion/', views.ConfiguracionView.as_view(), name='configuracion'),
+    path('configuracion/licencia/', views.LicenseSettingsView.as_view(), name='configuracion_licencia'),
     
     # Marcas CRUD
     path('marcas/', views.MarcaListView.as_view(), name='marca_list'),

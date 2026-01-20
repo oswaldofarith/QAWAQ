@@ -1,0 +1,92 @@
+{% extends 'base.html' %}
+
+{% block header_title %}Licenciamiento{% endblock %}
+{% block header_subtitle %}Gestión de la licencia del software{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-lg-8 mx-auto">
+        <!-- License Status Card -->
+        <div class="card-dashboard p-4 mb-4">
+            <h5 class="text-white mb-4">
+                <i class="bi bi-shield-check me-2"></i>Estado de la Licencia
+            </h5>
+
+            <div class="row g-4">
+                <div class="col-md-6">
+                    <div class="p-3 rounded bg-dark border border-secondary">
+                        <small class="text-secondary d-block mb-1">Cliente Registrado</small>
+                        <div class="text-white h5 mb-0">{{ license_info.client_name }}</div>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="p-3 rounded bg-dark border border-secondary">
+                        <small class="text-secondary d-block mb-1">Estado</small>
+                        {% if license_info.is_valid %}
+                            <div class="text-success h5 mb-0">
+                                <i class="bi bi-check-circle-fill me-2"></i>Activa
+                            </div>
+                        {% else %}
+                            <div class="text-danger h5 mb-0">
+                                <i class="bi bi-x-circle-fill me-2"></i>Inactiva
+                            </div>
+                        {% endif %}
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="p-3 rounded bg-dark border border-secondary">
+                        <small class="text-secondary d-block mb-1">Fecha de Expiración</small>
+                        <div class="text-white h5 mb-0">{{ license_info.expiration_date }}</div>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="p-3 rounded bg-dark border border-secondary">
+                        <small class="text-secondary d-block mb-1">Días Restantes</small>
+                        <div class="text-white h5 mb-0">{{ license_info.days_remaining }} días</div>
+                    </div>
+                </div>
+                {% if license_info.email %}
+                <div class="col-12">
+                    <div class="p-3 rounded bg-dark border border-secondary">
+                        <small class="text-secondary d-block mb-1">Contacto Registrado</small>
+                        <div class="text-white h5 mb-0">{{ license_info.email }}</div>
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Update License Form -->
+        <div class="card-dashboard p-4">
+            <h5 class="text-white mb-4">
+                <i class="bi bi-key-fill me-2"></i>Actualizar Licencia
+            </h5>
+            
+            <p class="text-secondary mb-4">
+                Si ha recibido una nueva clave de licencia para renovar o extender su suscripción, ingrésela a continuación.
+            </p>
+
+            <form method="post">
+                {% csrf_token %}
+                
+                <div class="mb-4">
+                    <label for="{{ form.license_key.id_for_label }}" class="form-label text-white">
+                        {{ form.license_key.label }}
+                    </label>
+                    {{ form.license_key }}
+                    <div class="form-text text-secondary">{{ form.license_key.help_text }}</div>
+                    {% if form.license_key.errors %}
+                        <div class="text-danger small mt-1">{{ form.license_key.errors }}</div>
+                    {% endif %}
+                </div>
+
+                <div class="d-flex justify-content-end">
+                    <button type="submit" class="btn btn-primary">
+                        <i class="bi bi-save me-2"></i>Guardar Nueva Licencia
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

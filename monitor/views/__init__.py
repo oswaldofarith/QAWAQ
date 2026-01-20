@@ -6,3 +6,4 @@ from .users import *
 from .config import *
 from .billing import *
 from .medidores import *
+from .license_views import *
