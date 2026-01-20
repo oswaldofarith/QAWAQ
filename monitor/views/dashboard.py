@@ -259,7 +259,7 @@ class NOCView(LoginRequiredMixin, TemplateView):
                 'tipo': dev.tipo.nombre if dev.tipo else 'N/A',
                 'downtime': downtime_str,
                 'is_critical': is_critical,
-                'porcion_nombres': [p.nombre for p in dev.medidores_asociados.all()[:2]] # Just for display
+                'porcion_nombres': [p.porcion.nombre for p in dev.medidores_asociados.all()[:2]] # Just for display
             })
 
         # Sort: Critical first, then by downtime
