@@ -20,6 +20,9 @@
         <hr class="border-secondary my-4">
         
         <p>Por favor contacte al proveedor para renovar su licencia.</p>
+        {% if info.email %}
+        <p class="mb-0"><i class="bi bi-envelope me-2"></i><a href="mailto:{{ info.email }}" class="text-white">{{ info.email }}</a></p>
+        {% endif %}
         
         <div class="mt-4">
             <a href="/admin/" class="btn btn-outline-light btn-sm">Acceso Administrativo</a>

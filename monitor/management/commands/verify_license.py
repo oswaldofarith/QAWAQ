@@ -10,6 +10,7 @@ class Command(BaseCommand):
         if info.is_valid:
             self.stdout.write(self.style.SUCCESS(f'License Valid'))
             self.stdout.write(f'Client: {info.client_name}')
+            self.stdout.write(f'Email: {info.email}')
             self.stdout.write(f'Expires: {info.expiration_date}')
             self.stdout.write(f'Remaining: {info.days_remaining} days')
             

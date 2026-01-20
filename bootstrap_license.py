@@ -11,7 +11,7 @@ from monitor.services.license_service import LicenseService
 def bootstrap():
     print("Bootstrapping license...")
     try:
-        token = LicenseService.generate_license("QAWAQ Trial", 30)
+        token = LicenseService.generate_license("QAWAQ Trial", 30, email="soporte@qawaq.com")
         LicenseService.save_license_file(token)
         print(f"License saved to {LicenseService.LICENSE_FILE_PATH}")
         

@@ -7,12 +7,14 @@ class Command(BaseCommand):
     def add_arguments(self, parser):
         parser.add_argument('--client', type=str, required=True, help='Name of the client')
         parser.add_argument('--days', type=int, required=True, help='Days valid from today')
+        parser.add_argument('--email', type=str, default="", help='Contact email for the client')
 
     def handle(self, *args, **options):
         client = options['client']
         days = options['days']
+        email = options['email']
 
-        token = LicenseService.generate_license(client, days)
+        token = LicenseService.generate_license(client, days, email=email)
         
         self.stdout.write(self.style.SUCCESS(f'Successfully generated license for "{client}"'))
         self.stdout.write(f'\n--- LICENSE KEY START ---\n{token}\n--- LICENSE KEY END ---\n')

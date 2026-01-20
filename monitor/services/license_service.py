@@ -9,6 +9,7 @@ from typing import Optional, Tuple, Dict
 @dataclass
 class LicenseInfo:
     client_name: str
+    email: str
     expiration_date: datetime.date
     is_valid: bool
     status_message: str
@@ -22,7 +23,7 @@ class LicenseService:
     LICENSE_FILE_PATH = os.path.join(settings.BASE_DIR, 'qawaq.license')
 
     @classmethod
-    def generate_license(cls, client_name: str, days_valid: int) -> str:
+    def generate_license(cls, client_name: str, days_valid: int, email: str = "") -> str:
         """
         Generate a signed license key string.
         """
@@ -30,6 +31,7 @@ class LicenseService:
         
         payload = {
             'client': client_name,
+            'email': email,
             'exp_date': expiration.isoformat(),
             'generated_at': timezone.now().isoformat(),
         }
@@ -66,6 +68,7 @@ class LicenseService:
         if not token:
             return LicenseInfo(
                 client_name="Unknown",
+                email="",
                 expiration_date=datetime.date.min,
                 is_valid=False,
                 status_message="No license found. Please contact support.",
@@ -77,6 +80,7 @@ class LicenseService:
             payload = jwt.decode(token, cls.LICENSE_SECRET, algorithms=[cls.ALGORITHM])
             
             client_name = payload.get('client', 'Unknown')
+            email = payload.get('email', '')
             exp_date_str = payload.get('exp_date')
             expiration_date = datetime.date.fromisoformat(exp_date_str)
             today = timezone.now().date()
@@ -86,6 +90,7 @@ class LicenseService:
             if days_remaining < 0:
                 return LicenseInfo(
                     client_name=client_name,
+                    email=email,
                     expiration_date=expiration_date,
                     is_valid=False,
                     status_message=f"License expired on {expiration_date}. Please renew.",
@@ -94,6 +99,7 @@ class LicenseService:
             
             return LicenseInfo(
                 client_name=client_name,
+                email=email,
                 expiration_date=expiration_date,
                 is_valid=True,
                 status_message="Active",
@@ -104,6 +110,7 @@ class LicenseService:
             # Should be caught by logic above if exp claim used, but we used custom claim
             return LicenseInfo(
                 client_name="Unknown",
+                email="",
                 expiration_date=datetime.date.min,
                 is_valid=False,
                 status_message="License expired (Signature verification).",
@@ -112,6 +119,7 @@ class LicenseService:
         except jwt.InvalidTokenError:
             return LicenseInfo(
                 client_name="Unknown",
+                email="",
                 expiration_date=datetime.date.min,
                 is_valid=False,
                 status_message="Invalid license key.",
@@ -120,6 +128,7 @@ class LicenseService:
         except Exception as e:
             return LicenseInfo(
                 client_name="Unknown",
+                email="",
                 expiration_date=datetime.date.min,
                 is_valid=False,
                 status_message=f"License error: {str(e)}",
