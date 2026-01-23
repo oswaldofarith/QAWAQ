@@ -13,6 +13,13 @@ import logging
 
 logger = logging.getLogger(__name__)
 
+# Import Telegram service with graceful fallback
+try:
+    from .telegram_service import TelegramNotificationService
+except ImportError:
+    TelegramNotificationService = None
+    logger.warning("TelegramNotificationService not available")
+
 
 class AlertService:
     """Service for handling equipment alerts."""
@@ -26,18 +33,13 @@ class AlertService:
         - Equipment that affects billing (has associated medidores with billing portions)
         - Or equipment marked as having 'piloto' (critical monitoring points)
         """
-        # Get equipment with associated medidores that have billing portions
-        equipment_with_billing = Equipo.objects.filter(
-            medidores_asociados__porcion__isnull=False
+        from django.db.models import Q
+        
+        # Use Q objects to combine conditions in a single query
+        critical_equipment = Equipo.objects.filter(
+            Q(medidores_asociados__porcion__isnull=False) |
+            Q(piloto__isnull=False) & ~Q(piloto='')
         ).distinct()
-        
-        # Get equipment with pilots (critical monitoring points)
-        equipment_with_pilots = Equipo.objects.exclude(
-            piloto__isnull=True
-        ).exclude(piloto='')
-        
-        # Combine both sets
-        critical_equipment = (equipment_with_billing | equipment_with_pilots).distinct()
         
         return critical_equipment
     
@@ -69,27 +71,30 @@ class AlertService:
     @staticmethod
     def get_critical_offline_equipment():
         """Get critical equipment that is currently offline."""
-        critical = AlertService.get_critical_equipment()
+        from django.db.models import Q
+        
+        # Get critical equipment using a single query with Q objects
+        critical = Equipo.objects.filter(
+            Q(medidores_asociados__porcion__isnull=False) |
+            (Q(piloto__isnull=False) & ~Q(piloto=''))
+        ).distinct()
+        
         offline = AlertService.get_offline_equipment()
         
-        return critical & offline
+        # Return intersection using filter
+        return critical.filter(pk__in=offline.values_list('pk', flat=True))
     
     @staticmethod
-    def send_equipment_alert(equipment_list):
+    def prepare_equipment_data(equipment_list):
         """
-        Send email alert for offline equipment.
+        Prepare equipment data for notifications.
         
         Args:
             equipment_list: List or QuerySet of Equipo objects
         
         Returns:
-            bool: True if email sent successfully, False otherwise
+            list: Prepared equipment data dictionaries
         """
-        if not equipment_list:
-            logger.info("No equipment to alert about")
-            return False
-        
-        # Prepare equipment data
         equipment_data = []
         for equipo in equipment_list:
             # Calculate downtime
@@ -117,6 +122,23 @@ class AlertService:
                 'medidor_count': medidor_count,
                 'affected_portions': portions_str,
             })
+        
+        return equipment_data
+    
+    @staticmethod
+    def send_email_alert(equipment_data):
+        """
+        Send email alert for offline equipment.
+        
+        Args:
+            equipment_data: List of equipment data dictionaries from prepare_equipment_data
+        
+        Returns:
+            bool: True if email sent successfully, False otherwise
+        """
+        if not equipment_data:
+            logger.info("No equipment data to email")
+            return False
         
         # Render email content
         context = {
@@ -163,6 +185,70 @@ Se detectaron {len(equipment_data)} equipos críticos offline:
             return False
     
     @staticmethod
+    def send_telegram_alert(equipment_data):
+        """
+        Send Telegram alert for offline equipment.
+        
+        Args:
+            equipment_data: List of equipment data dictionaries
+        
+        Returns:
+            dict: Result summary from Telegram service
+        """
+        if not equipment_data:
+            logger.info("No equipment data to send via Telegram")
+            return {'success': False, 'sent_count': 0}
+        
+        if TelegramNotificationService is None:
+            logger.warning("Telegram service not available")
+            return {'success': False, 'sent_count': 0, 'error': 'Service not available'}
+        
+        telegram_service = TelegramNotificationService()
+        result = telegram_service.send_critical_alert(equipment_data)
+        
+        if result.get('success'):
+            logger.info(f"Telegram alerts sent to {result.get('sent_count')} recipients")
+        else:
+            logger.warning(f"Telegram alert failed: {result.get('error', 'Unknown error')}")
+        
+        return result
+    
+    @staticmethod
+    def send_equipment_alert(equipment_list, channels=None):
+        """
+        Send multi-channel alert for offline equipment.
+        
+        Args:
+            equipment_list: List or QuerySet of Equipo objects
+            channels: List of channels to use ['email', 'telegram']. If None, uses both.
+        
+        Returns:
+            dict: Summary of alerts sent across all channels
+        """
+        if not equipment_list:
+            logger.info("No equipment to alert about")
+            return {'email': False, 'telegram': {'success': False, 'sent_count': 0}}
+        
+        # Default to both channels if not specified
+        if channels is None:
+            channels = ['email', 'telegram']
+        
+        # Prepare equipment data once for both channels
+        equipment_data = AlertService.prepare_equipment_data(equipment_list)
+        
+        result = {}
+        
+        # Send email if requested
+        if 'email' in channels:
+            result['email'] = AlertService.send_email_alert(equipment_data)
+        
+        # Send Telegram if requested
+        if 'telegram' in channels:
+            result['telegram'] = AlertService.send_telegram_alert(equipment_data)
+        
+        return result
+    
+    @staticmethod
     def check_and_alert():
         """
         Main method to check for offline critical equipment and send alerts.
@@ -179,11 +265,19 @@ Se detectaron {len(equipment_data)} equipos críticos offline:
             'checked_at': timezone.now(),
             'critical_count': AlertService.get_critical_equipment().count(),
             'offline_critical_count': len(equipment_list),
-            'alert_sent': False,
+            'email_sent': False,
+            'telegram_sent': False,
+            'telegram_recipients': 0,
         }
         
         if equipment_list:
-            result['alert_sent'] = AlertService.send_equipment_alert(equipment_list)
+            alert_result = AlertService.send_equipment_alert(equipment_list)
+            result['email_sent'] = alert_result.get('email', False)
+            
+            telegram_result = alert_result.get('telegram', {})
+            result['telegram_sent'] = telegram_result.get('success', False)
+            result['telegram_recipients'] = telegram_result.get('sent_count', 0)
+            
             result['equipment_ids'] = [e.id_equipo for e in equipment_list]
         
         logger.info(f"Alert check completed: {result}")
