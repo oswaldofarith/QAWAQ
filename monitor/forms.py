@@ -3,7 +3,7 @@ from django.core.exceptions import ValidationError
 from django.contrib.auth.models import User
 from .models import (
     UserProfile, ConfiguracionGlobal, Marca, TipoEquipo, Equipo,
-    Porcion, CicloFacturacion, EventoFacturacion
+    Porcion, CicloFacturacion, EventoFacturacion, Sistema, Servidor
 )
 import re
 
@@ -416,15 +416,33 @@ class MyProfileForm(forms.ModelForm):
     
     class Meta:
         model = UserProfile
-        fields = ['avatar']
+        fields = ['avatar', 'telegram_chat_id', 'email_notifications', 'telegram_notifications']
         widgets = {
             'avatar': forms.FileInput(attrs={
                 'class': 'form-control',
                 'accept': 'image/*'
+            }),
+            'telegram_chat_id': forms.TextInput(attrs={
+                'class': 'form-control',
+                'placeholder': '123456789'
+            }),
+            'email_notifications': forms.CheckboxInput(attrs={
+                'class': 'form-check-input'
+            }),
+            'telegram_notifications': forms.CheckboxInput(attrs={
+                'class': 'form-check-input'
             })
         }
         labels = {
-            'avatar': 'Foto de Perfil'
+            'avatar': 'Foto de Perfil',
+            'telegram_chat_id': 'Chat ID de Telegram',
+            'email_notifications': 'Notificaciones por Email',
+            'telegram_notifications': 'Notificaciones por Telegram'
+        }
+        help_texts = {
+            'telegram_chat_id': 'Para obtener tu Chat ID, habla con @userinfobot en Telegram',
+            'email_notifications': 'Recibir alertas de equipos críticos por correo electrónico',
+            'telegram_notifications': 'Recibir alertas de equipos críticos por Telegram (requiere Chat ID)'
         }
     
     def __init__(self, *args, **kwargs):
@@ -545,3 +563,39 @@ class EventoFacturacionForm(forms.ModelForm):
         
         return instance
 
+
+class SistemaForm(forms.ModelForm):
+    """Form for creating and editing systems."""
+    class Meta:
+        model = Sistema
+        fields = ['nombre', 'marca', 'descripcion']
+        widgets = {
+            'nombre': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Nombre del Sistema (ej: HES Trilliant)'}),
+            'marca': forms.Select(attrs={'class': 'form-select'}),
+            'descripcion': forms.Textarea(attrs={'class': 'form-control', 'rows': 3}),
+        }
+        labels = {
+            'nombre': 'Nombre',
+            'marca': 'Marca',
+            'descripcion': 'Descripción',
+        }
+
+class ServidorForm(forms.ModelForm):
+    """Form for creating and editing servers."""
+    class Meta:
+        model = Servidor
+        fields = ['nombre', 'ip_address', 'tipo', 'sistema_operativo', 'sistema']
+        widgets = {
+            'nombre': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Nombre del Servidor'}),
+            'ip_address': forms.TextInput(attrs={'class': 'form-control', 'placeholder': '192.168.x.x'}),
+            'tipo': forms.Select(attrs={'class': 'form-select'}),
+            'sistema_operativo': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'ej: Windows Server 2022'}),
+            'sistema': forms.Select(attrs={'class': 'form-select'}),
+        }
+        labels = {
+            'nombre': 'Nombre',
+            'ip_address': 'Dirección IP',
+            'tipo': 'Tipo de Servidor',
+            'sistema_operativo': 'Sistema Operativo',
+            'sistema': 'Sistema al que pertenece',
+        }

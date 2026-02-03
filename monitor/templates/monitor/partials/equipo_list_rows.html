@@ -35,7 +35,11 @@
         {% endfor %}
     </td>
     <td style="vertical-align: middle;">
-        {% if equipo.is_online %}
+        {% if equipo.estado == 'EN_MANTENIMIENTO' or equipo.en_mantenimiento %}
+        <div class="d-flex align-items-center text-warning fw-bold small">
+            <span class="status-dot bg-warning me-2"></span> Mantenimiento
+        </div>
+        {% elif equipo.is_online %}
         <div class="d-flex align-items-center text-success fw-bold small">
             <span class="status-dot bg-success me-2"></span> Online
         </div>
@@ -62,6 +66,17 @@
                 class="btn btn-sm btn-outline-secondary border-0 text-white hover-primary" title="Ver Detalle">
                 <i class="bi bi-eye"></i>
             </a>
+
+            <!-- Maintenance Toggle -->
+            {% if user.profile.role == 'admin' %}
+            <button class="btn btn-sm btn-outline-secondary border-0 {% if equipo.estado == 'EN_MANTENIMIENTO' or equipo.en_mantenimiento %}text-warning{% else %}text-white{% endif %} hover-warning" 
+                title="{% if equipo.estado == 'EN_MANTENIMIENTO' or equipo.en_mantenimiento %}Quitar de Mantenimiento{% else %}Poner en Mantenimiento{% endif %}"
+                hx-post="{% url 'toggle_maintenance' equipo.id %}" 
+                hx-target="closest tr" 
+                hx-swap="outerHTML">
+                <i class="bi bi-tools"></i>
+            </button>
+            {% endif %}
         </div>
     </td>
 </tr>

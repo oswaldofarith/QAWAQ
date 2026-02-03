@@ -362,6 +362,13 @@ body {
     border-color: #e5e7eb !important;
 }
 
+[data-bs-theme="light"] #nocViewBtn {
+    background-color: #ffffff !important;
+    color: #6b7280 !important;
+    /* Secondary text color */
+    border-color: #e5e7eb !important;
+}
+
 [data-bs-theme="light"] .input-group-text.bg-dark {
     background-color: #f3f4f6 !important;
     color: var(--text-secondary) !important;

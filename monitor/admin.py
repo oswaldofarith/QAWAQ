@@ -1,5 +1,16 @@
 from django.contrib import admin
-from .models import ConfiguracionGlobal, Marca, TipoEquipo, Equipo, HistorialDisponibilidad
+from .models import ConfiguracionGlobal, Marca, TipoEquipo, Equipo, HistorialDisponibilidad, Sistema, Servidor
+
+@admin.register(Sistema)
+class SistemaAdmin(admin.ModelAdmin):
+    list_display = ['nombre', 'marca', 'created_at']
+    search_fields = ['nombre']
+
+@admin.register(Servidor)
+class ServidorAdmin(admin.ModelAdmin):
+    list_display = ['nombre', 'ip_address', 'tipo', 'sistema', 'estado', 'last_seen']
+    list_filter = ['tipo', 'sistema', 'estado']
+    search_fields = ['nombre', 'ip_address']
 
 @admin.register(ConfiguracionGlobal)
 class ConfiguracionGlobalAdmin(admin.ModelAdmin):

@@ -236,6 +236,10 @@ DEFAULT_FROM_EMAIL = config('DEFAULT_FROM_EMAIL', default='noreply@qawaq.com')
 ALERT_CHECK_INTERVAL = config('ALERT_CHECK_INTERVAL', default=15, cast=int)
 ALERT_OFFLINE_THRESHOLD = config('ALERT_OFFLINE_THRESHOLD', default=30, cast=int)
 
+# Telegram Notification Settings
+TELEGRAM_BOT_TOKEN = config('TELEGRAM_BOT_TOKEN', default='')
+TELEGRAM_ENABLED = config('TELEGRAM_ENABLED', default=False, cast=bool)
+
 # Redis Cache Configuration
 REDIS_URL = config('REDIS_URL', default='redis://127.0.0.1:6379/1')
 
@@ -277,4 +281,6 @@ CACHE_TTL = 60 * 5  # 5 minutes
 
 
 
+
 print("DEBUG: Settings loaded successfully")
+

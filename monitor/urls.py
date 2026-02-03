@@ -16,6 +16,7 @@ urlpatterns = [
     path('equipos/<int:pk>/', views.EquipoDetailView.as_view(), name='equipo_detail'),
     path('equipos/<int:pk>/editar/', views.EquipoUpdateView.as_view(), name='equipo_update'),
     path('equipos/<int:pk>/eliminar/', views.EquipoDeleteView.as_view(), name='equipo_delete'),
+    path('equipos/<int:pk>/toggle-mantenimiento/', views.ToggleMaintenanceView.as_view(), name='toggle_maintenance'),
     path('equipos/import/', views.ImportEquiposView.as_view(), name='import_equipos'),
     path('equipos/import/template/', views.DownloadImportTemplateView.as_view(), name='download_import_template'),
     path('reportes/', views.ReporteView.as_view(), name='reportes'),
@@ -58,6 +59,16 @@ urlpatterns = [
     path('tipos/nuevo/', views.TipoEquipoCreateView.as_view(), name='tipo_create'),
     path('tipos/<int:pk>/editar/', views.TipoEquipoUpdateView.as_view(), name='tipo_update'),
     path('tipos/<int:pk>/eliminar/', views.TipoEquipoDeleteView.as_view(), name='tipo_delete'),
+    
+    # Servers & Systems
+    path('servidores/', views.ServidorListView.as_view(), name='servidor_list'),
+    path('servidores/nuevo/', views.ServidorCreateView.as_view(), name='servidor_create'),
+    path('servidores/<int:pk>/editar/', views.ServidorUpdateView.as_view(), name='servidor_update'),
+    path('servidores/<int:pk>/eliminar/', views.ServidorDeleteView.as_view(), name='servidor_delete'),
+    
+    path('sistemas/nuevo/', views.SistemaCreateView.as_view(), name='sistema_create'),
+    path('sistemas/<int:pk>/editar/', views.SistemaUpdateView.as_view(), name='sistema_update'),
+    path('sistemas/<int:pk>/eliminar/', views.SistemaDeleteView.as_view(), name='sistema_delete'),
     
     # Billing Calendar
     path('calendario/', views.CalendarioView.as_view(), name='calendario'),

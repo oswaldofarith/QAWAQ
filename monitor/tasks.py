@@ -1,6 +1,6 @@
 from django_q.tasks import async_task
 from django.utils import timezone
-from .models import Equipo, HistorialDisponibilidad, ConfiguracionGlobal
+from .models import Equipo, HistorialDisponibilidad, ConfiguracionGlobal, Servidor
 import logging
 import subprocess
 import platform
@@ -80,3 +80,148 @@ def poll_devices():
         # Check if we should ping this device? 
         # For simplicity, poll_devices runs every X seconds and pings ALL active devices.
         async_task('monitor.tasks.check_device', device.id)
+
+
+from pysnmp.hlapi import *
+
+def check_server_ping(server_id):
+    """Verifica disponibilidad del servidor mediante ICMP (Ping)."""
+    try:
+        server = Servidor.objects.get(id=server_id)
+        config = ConfiguracionGlobal.load()
+        
+        # Ping
+        latency = ping_host(server.ip_address, timeout=2) # 2s default
+        
+        # Reintentos de Ping
+        if latency is None and config.reintentos > 0:
+            for _ in range(config.reintentos):
+                latency = ping_host(server.ip_address, timeout=1)
+                if latency is not None:
+                    break
+        
+        # Actualizar estado
+        status = 'ONLINE' if latency is not None else 'OFFLINE'
+        server.estado = status
+        
+        if status == 'ONLINE':
+            server.last_seen = timezone.now()
+            
+        server.save()
+        
+        # Si está online, disparar recolección de métricas
+        if status == 'ONLINE' and config.snmp_user:
+            async_task('monitor.tasks.collect_server_metrics', server_id)
+            
+    except Exception as e:
+        logger.error(f"Error en check_server_ping para {server_id}: {e}")
+
+
+def collect_server_metrics(server_id):
+    """Recolecta métricas (CPU, RAM, Disco) via SNMP v3 si el servidor está ONLINE."""
+    try:
+        server = Servidor.objects.get(id=server_id)
+        config = ConfiguracionGlobal.load()
+        
+        if not config.snmp_user:
+            return
+
+        # Config SNMP User
+        auth_protocols = {
+            'MD5': usmHMACMD5AuthProtocol,
+            'SHA': usmHMACSHAAuthProtocol,
+            'NONE': usmNoAuthProtocol,
+        }
+        priv_protocols = {
+            'DES': usmDESPrivProtocol,
+            'AES': usmAesCfb128Protocol,
+            'NONE': usmNoPrivProtocol,
+        }
+        
+        user_data = UsmUserData(
+            config.snmp_user,
+            config.snmp_auth_key or None,
+            config.snmp_priv_key or None,
+            authProtocol=auth_protocols.get(config.snmp_auth_protocol, usmHMACSHAAuthProtocol),
+            privProtocol=priv_protocols.get(config.snmp_priv_protocol, usmAesCfb128Protocol),
+        )
+        engine = SnmpEngine()
+        target = UdpTransportTarget((server.ip_address, 161), timeout=2.0, retries=1)
+        context = ContextData()
+
+        # OIDs Comunes (Linux/Windows con SNMP standard)
+        # Load Average (1 min): .1.3.6.1.4.1.2021.10.1.3.1 (UCD-SNMP-MIB)
+        # Mem Total: .1.3.6.1.4.1.2021.4.5.0 (kB)
+        # Mem Avail: .1.3.6.1.4.1.2021.4.6.0 (kB)
+        # SysUpTime: .1.3.6.1.2.1.1.3.0
+        
+        oids = {
+            'sysUpTime': ObjectType(ObjectIdentity('1.3.6.1.2.1.1.3.0')),
+            'memTotal': ObjectType(ObjectIdentity('1.3.6.1.4.1.2021.4.5.0')), # kB
+            'memAvail': ObjectType(ObjectIdentity('1.3.6.1.4.1.2021.4.6.0')), # kB
+            'load1': ObjectType(ObjectIdentity('1.3.6.1.4.1.2021.10.1.3.1')), 
+        }
+        
+        iterator = getCmd(
+            engine, user_data, target, context,
+            oids['sysUpTime'], oids['memTotal'], oids['memAvail'], oids['load1']
+        )
+        
+        errorIndication, errorStatus, errorIndex, varBinds = next(iterator)
+        
+        if errorIndication or errorStatus:
+            logger.warning(f"SNMP Metrics Error {server.nombre}: {errorIndication or errorStatus}")
+            return
+
+        # Parsear resultados
+        # varBinds orden: sysUpTime, memTotal, memAvail, load1
+        
+        # UpTime
+        if len(varBinds) >= 1:
+            server.uptime = str(varBinds[0][1])
+            
+        # Memory (Convertir kB a Bytes)
+        if len(varBinds) >= 3:
+            try:
+                total_kb = int(varBinds[1][1])
+                avail_kb = int(varBinds[2][1])
+                server.memory_total = total_kb * 1024
+                # Used = Total - Avail
+                server.memory_used = (total_kb - avail_kb) * 1024
+            except:
+                pass
+
+        # CPU Load
+        if len(varBinds) >= 4:
+            try:
+                # load1 suele ser float
+                server.cpu_usage = float(varBinds[3][1])
+            except:
+                pass
+                
+        server.save()
+
+    except Exception as e:
+        logger.error(f"Error collecting metrics for {server_id}: {e}")
+
+# Legacy Support / Alias
+def check_server_snmp(server_id):
+    """
+    Deprecated: Forwarder function for old queued tasks.
+    Redirects to the new availability check.
+    """
+    return check_server_ping(server_id)
+
+def check_equipment_alerts_task():
+    """Wrapper to run the check_equipment_alerts management command from Django Q."""
+    from django.core.management import call_command
+    call_command('check_equipment_alerts')
+
+def poll_servers():
+    """Tarea programada para revisar todos los servidores."""
+    servers = Servidor.objects.all()
+    for server in servers:
+        # Primero Ping (rápido y barato)
+        async_task('monitor.tasks.check_server_ping', server.id)
+
+

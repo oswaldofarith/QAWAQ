@@ -30,9 +30,22 @@ class Command(BaseCommand):
             )
             self.stdout.write(f"Equipment IDs: {', '.join(result.get('equipment_ids', []))}")
             
-            if result['alert_sent']:
-                self.stdout.write(self.style.SUCCESS('✓ Alert email sent successfully'))
+            # Email notification status
+            if result.get('email_sent'):
+                self.stdout.write(self.style.SUCCESS('✓ Email alert sent successfully'))
             else:
-                self.stdout.write(self.style.ERROR('✗ Failed to send alert email'))
+                self.stdout.write(self.style.ERROR('✗ Failed to send email alert'))
+            
+            # Telegram notification status
+            if result.get('telegram_sent'):
+                self.stdout.write(
+                    self.style.SUCCESS(
+                        f"✓ Telegram alerts sent to {result.get('telegram_recipients', 0)} recipient(s)"
+                    )
+                )
+            elif result.get('telegram_recipients', 0) == 0:
+                self.stdout.write(self.style.WARNING('⚠ No Telegram recipients configured'))
+            else:
+                self.stdout.write(self.style.ERROR('✗ Failed to send Telegram alerts'))
         else:
             self.stdout.write(self.style.SUCCESS('✓ All critical equipment is online'))

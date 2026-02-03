@@ -38,7 +38,7 @@ class Migration(migrations.Migration):
         # Medidor model indexes
         migrations.AddIndex(
             model_name='medidor',
-            index=models.Index(fields=['id_medidor'], name='monitor_med_id_medi_idx'),
+            index=models.Index(fields=['numero'], name='monitor_med_numero_idx'),
         ),
         migrations.AddIndex(
             model_name='medidor',

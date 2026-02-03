@@ -23,7 +23,8 @@ class DashboardView(TemplateView):
         # We need: Brand Name, Total Count, Down Count, Status Color (implicit)
         top_brands = Equipo.objects.values('marca__nombre', 'marca__color').annotate(
             total=Count('id'),
-            down=Count('id', filter=Q(is_online=False))
+            down=Count('id', filter=Q(is_online=False, estado='ACTIVO')),
+            maintenance=Count('id', filter=Q(estado='EN_MANTENIMIENTO'))
         ).order_by('-total')[:4]
         
         context['brand_stats'] = top_brands
@@ -109,87 +110,62 @@ class DashboardView(TemplateView):
             else:
                 downtime_seconds = float('inf') # Treat as longest downtime
             
-            # 2. Determine Billing Status
+            # 2. Find Nearest Billing Date
             billing_date = None
-            billing_priority = False # True if Today or Tomorrow
-            billing_sort_priority = 0 # 2=Today, 1=Tomorrow, 0=Others
-            billing_label = "-"
             
-            # Check all associated portions for this device
-            # A device (colector) might serve multiple portions, take the most critical one (earliest date)
-            # Also calculate how many meters are in the portions affecting this date
-            
-            # First pass: Determine Billing Date
+            # Find earliest billing date among all portions associated with this device
             for medidor in dev.medidores_asociados.all():
                 if medidor.porcion_id in porcion_billing_map:
                     p_date = porcion_billing_map[medidor.porcion_id]
                     if billing_date is None or p_date < billing_date:
                         billing_date = p_date
             
-            # Second pass: Count meters for that specific date
-            afectacion_count = 0
+            # 3. Add to list if applicable
             if billing_date:
+                # Count meters affected by THIS specific billing date
+                afectacion_count = 0
                 for medidor in dev.medidores_asociados.all():
-                    if medidor.porcion_id in porcion_billing_map:
-                       if porcion_billing_map[medidor.porcion_id] == billing_date:
-                           afectacion_count += 1
-            else:
-                 # If no billing date, maybe show total meters? Or 0? User said "associated in the portions that are billing on the date indicated". 
-                 # So if no date indicated (billing_label="-"), count is 0 not relevant.
-                 afectacion_count = 0
-            
-            if billing_date:
-                delta_days = (billing_date - today_date).days
+                    if medidor.porcion_id in porcion_billing_map and porcion_billing_map[medidor.porcion_id] == billing_date:
+                        afectacion_count += 1
                 
-                if delta_days == 0:
-                    billing_label = "Hoy"
-                    billing_priority = True
-                    billing_sort_priority = 2
-                elif delta_days == 1:
-                    billing_label = "Mañana"
-                    billing_priority = True
-                    billing_sort_priority = 1
-                elif delta_days < 7:
-                    # Show Day Name
-                    billing_label = days_es[billing_date.weekday()]
-                else:
-                    # Show Date
-                    billing_label = billing_date.strftime("%d/%m")
+                if afectacion_count > 0:
+                    delta_days = (billing_date - today_date).days
+                    billing_label = ""
+                    
+                    if delta_days == 0:
+                        billing_label = "Hoy"
+                    elif delta_days == 1:
+                        billing_label = "Mañana"
+                    else:
+                        billing_label = billing_date.strftime("%d/%m")
+                    
+                    afectacion_str = "1 medidor" if afectacion_count == 1 else f"{afectacion_count} medidores"
+                    
+                    offline_devices.append({
+                        'id_equipo': dev.id_equipo,
+                        'ip': dev.ip,
+                        'marca': dev.marca.nombre if dev.marca else 'Desconocido',
+                        'downtime': downtime_str,
+                        'downtime_seconds': downtime_seconds,
+                        'delta_days': delta_days,
+                        'billing_label': billing_label,
+                        'billing_priority': delta_days <= 1, # Preserve for template styling
+                        'afectacion_count': afectacion_count,
+                        'afectacion_str': afectacion_str,
+                        'id': dev.id
+                    })
             
-            # 3. Format "Afectación" label
-            afectacion_str = ""
-            if billing_date and afectacion_count > 0:
-                if afectacion_count == 1:
-                    afectacion_str = "1 medidor"
-                else:
-                    afectacion_str = f"{afectacion_count} medidores"
-            
-            
-            # Only add device if it has billing priority (today or tomorrow) AND has associated medidores
-            if billing_priority and afectacion_count > 0:
-                offline_devices.append({
-                    'id_equipo': dev.id_equipo,
-                    'ip': dev.ip,
-                    'marca': dev.marca.nombre if dev.marca else 'Desconocido',
-                    'downtime': downtime_str,
-                    'downtime_seconds': downtime_seconds, # For sorting
-                    'billing_priority': billing_priority, # For sorting
-                    'billing_sort_priority': billing_sort_priority,
-                    'billing_label': billing_label,
-                    'afectacion_count': afectacion_count,
-                    'afectacion_str': afectacion_str,
-                    'id': dev.id # for url
-                })
-            
-        # Sort logic: 
-        # Primary: billing_priority (True > False) -> Reverse=True handles this? True=1, False=0. Yes.
-        # Secondary: downtime_seconds (Biggest > Smallest) -> Reverse=True
+        # Sort: Nearest billing first (small delta), then longest downtime (big seconds -> negative for descending)
+        offline_devices.sort(key=lambda x: (x['delta_days'], -x['downtime_seconds']))
         
-        offline_devices.sort(key=lambda x: (x['billing_sort_priority'], x['downtime_seconds']), reverse=True)
+        # Limit to top 8 priority devices
+        offline_devices = offline_devices[:8]
             
-        context['offline_list'] = offline_devices # Show all devices with billing priority (no limit)
+        context['offline_list'] = offline_devices
         context['total_monitored'] = Equipo.objects.count()
-        context['total_down'] = len(raw_offline)
+        context['total_down'] = Equipo.objects.filter(is_online=False, estado='ACTIVO').count()
+        context['total_online'] = Equipo.objects.filter(is_online=True, estado='ACTIVO').count()
+        context['total_maintenance'] = Equipo.objects.filter(estado='EN_MANTENIMIENTO').count()
         
         # Billing events for today and tomorrow
         
@@ -219,75 +195,108 @@ class NOCView(LoginRequiredMixin, TemplateView):
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         now = timezone.now()
+        today = now.date()
+        tomorrow = today + datetime.timedelta(days=1)
         start_24h = now - datetime.timedelta(hours=24)
         
         # 1. Global Stats
         context['total_equipos'] = Equipo.objects.count()
-        context['online_count'] = Equipo.objects.filter(is_online=True).count()
-        context['offline_count'] = Equipo.objects.filter(is_online=False).count()
+        context['online_count'] = Equipo.objects.filter(is_online=True, estado='ACTIVO').count()
+        context['offline_count'] = Equipo.objects.filter(is_online=False, estado='ACTIVO').count()
+        context['maintenance_count'] = Equipo.objects.filter(estado='EN_MANTENIMIENTO').count()
         
         # 2. Daily Failure Count (total checks that resulted in OFFLINE in last 24h)
+        # This remains unchanged as it counts historical check events
         context['failures_24h'] = HistorialDisponibilidad.objects.filter(
             timestamp__gte=start_24h,
             estado='OFFLINE'
         ).count()
 
-        # 3. Active Failures List (Critical first)
-        active_failures = Equipo.objects.filter(
-            is_online=False, 
-            estado='ACTIVO'
-        ).select_related('marca', 'tipo').prefetch_related('medidores_asociados__porcion')
+        # 3. Critical Failures: Equipment with meters in portions being billed today or tomorrow
         
-        # Enriched failure list for NOC
+        # Get portions with billing events today or tomorrow
+        critical_portions = EventoFacturacion.objects.filter(
+            fecha__in=[today, tomorrow]
+        ).values_list('porcion_id', flat=True).distinct()
+        
+        # Get equipment that:
+        # - Is currently offline
+        # - Has meters associated with critical portions
+        critical_failures = Equipo.objects.filter(
+            is_online=False,
+            estado='ACTIVO',
+            medidores_asociados__porcion_id__in=critical_portions
+        ).distinct().select_related('marca', 'tipo').prefetch_related('medidores_asociados__porcion')
+        
+        # Enriched critical failure list for NOC
         failure_list = []
-        for dev in active_failures:
+        for dev in critical_failures:
             downtime_str = "N/A"
+            downtime_seconds = 0
             if dev.last_seen:
                 diff = now - dev.last_seen
                 total_seconds = int(diff.total_seconds())
+                downtime_seconds = total_seconds
                 hours = total_seconds // 3600
                 minutes = (total_seconds % 3600) // 60
                 downtime_str = f"{hours:02}:{minutes:02}"
             
-            # Determine priority based on portion types
-            is_critical = dev.medidores_asociados.filter(porcion__tipo='ESPECIAL').exists()
+            # Get billing events for this equipment's portions
+            billing_events = EventoFacturacion.objects.filter(
+                porcion__in=dev.medidores_asociados.values_list('porcion', flat=True),
+                fecha__in=[today, tomorrow]
+            ).select_related('porcion')
+            
+            # Check if has billing today (not tomorrow)
+            has_billing_today = billing_events.filter(fecha=today).exists()
             
             failure_list.append({
                 'id_equipo': dev.id_equipo,
                 'ip': dev.ip,
                 'marca': dev.marca.nombre if dev.marca else 'N/A',
                 'tipo': dev.tipo.nombre if dev.tipo else 'N/A',
+                'medio': dev.medio_comunicacion if dev.medio_comunicacion else 'N/A',
                 'downtime': downtime_str,
-                'is_critical': is_critical,
-                'porcion_nombres': [p.porcion.nombre for p in dev.medidores_asociados.all()[:2]] # Just for display
+                'downtime_seconds': downtime_seconds,
+                'has_billing_today': has_billing_today,
+                'porcion_nombres': [evt.porcion.nombre for evt in billing_events[:3]],
+                'billing_dates': [evt.fecha.strftime('%d/%m') for evt in billing_events[:3]]
             })
 
-        # Sort: Critical first, then by downtime
-        failure_list.sort(key=lambda x: (x['is_critical'], x['downtime']), reverse=True)
-        context['active_failures'] = failure_list
+        # Sort: 1) Billing today first, 2) Then by shortest downtime (most recent failures)
+        failure_list.sort(key=lambda x: (not x['has_billing_today'], x['downtime_seconds']))
+        context['critical_failures'] = failure_list
 
-        # 4. Heatmap Data (Brands with most failures)
-        brand_fails = Equipo.objects.filter(is_online=False).values('marca__nombre').annotate(
-            count=Count('id')
-        ).order_by('-count')
-        context['brand_fails_json'] = json.dumps(list(brand_fails), cls=DjangoJSONEncoder)
-
-        # 5. Hourly Failure Trend (Last 24h)
-        current_tz = timezone.get_current_timezone()
-        failure_trend = HistorialDisponibilidad.objects.filter(
-            timestamp__gte=start_24h,
-            estado='OFFLINE'
-        ).annotate(
-            hour=TruncHour('timestamp', output_field=DateTimeField(), tzinfo=current_tz)
-        ).values('hour').annotate(
-            count=Count('id')
-        ).order_by('hour')
-
-        trend_labels = [item['hour'].strftime('%H:%M') for item in failure_trend]
-        trend_values = [item['count'] for item in failure_trend]
+        # 4. Map Data - All equipment with coordinates (Active or Maintenance)
+        equipos = Equipo.objects.filter(
+            Q(estado='ACTIVO') | Q(estado='EN_MANTENIMIENTO')
+        ).select_related('marca', 'tipo').prefetch_related('medidores_asociados__porcion')
         
-        context['trend_labels_json'] = json.dumps(trend_labels)
-        context['trend_values_json'] = json.dumps(trend_values)
+        equipos_data = []
+        for eq in equipos:
+            if eq.latitud and eq.longitud:
+                # Color logic: Maintenance (Yellow) > Offline (Red) > Online (Green)
+                if eq.estado == 'EN_MANTENIMIENTO':
+                    marker_color = '#ffc107' # Bright Yellow
+                elif not eq.is_online:
+                    marker_color = '#da3633' # --noc-offline
+                else:
+                    marker_color = '#238636' # --noc-online
+
+                equipos_data.append({
+                    'id_equipo': eq.id_equipo,
+                    'ip': eq.ip,
+                    'lat': float(eq.latitud),
+                    'lng': float(eq.longitud),
+                    'is_online': eq.is_online,
+                    'marker_color': marker_color,
+                    'estado': eq.get_estado_display(),
+                    'marca': eq.marca.nombre if eq.marca else 'N/A',
+                    'tipo': eq.tipo.nombre if eq.tipo else 'N/A',
+                    'last_seen': eq.last_seen.strftime('%Y-%m-%d %H:%M') if eq.last_seen else 'N/A',
+                })
+        
+        context['equipos_json'] = json.dumps(equipos_data, cls=DjangoJSONEncoder)
 
         return context
 

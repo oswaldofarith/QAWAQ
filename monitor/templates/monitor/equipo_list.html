@@ -92,6 +92,7 @@
             <option value="">Estado: Todos</option>
             <option value="ACTIVO" {% if request.GET.estado == 'ACTIVO' %}selected{% endif %}>Activo</option>
             <option value="INACTIVO" {% if request.GET.estado == 'INACTIVO' %}selected{% endif %}>Inactivo</option>
+            <option value="EN_MANTENIMIENTO" {% if request.GET.estado == 'EN_MANTENIMIENTO' %}selected{% endif %}>En Mantenimiento</option>
         </select>
 
         <!-- Comunicación -->

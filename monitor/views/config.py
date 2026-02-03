@@ -15,9 +15,27 @@ class ConfiguracionView(View):
     def get(self, request):
         config = ConfiguracionGlobal.load()
         form = ConfiguracionGlobalForm(instance=config)
+        
+        # Check Telegram configuration status
+        from django.conf import settings
+        telegram_enabled = getattr(settings, 'TELEGRAM_ENABLED', False) and bool(getattr(settings, 'TELEGRAM_BOT_TOKEN', ''))
+        telegram_bot_info = None
+        
+        if telegram_enabled:
+            try:
+                from monitor.services.telegram_service import TelegramNotificationService
+                telegram_service = TelegramNotificationService()
+                bot_result = telegram_service.verify_bot_connection()
+                if bot_result.get('success'):
+                    telegram_bot_info = bot_result
+            except Exception:
+                pass
+        
         return render(request, 'monitor/configuracion.html', {
             'form': form,
-            'config': config
+            'config': config,
+            'telegram_enabled': telegram_enabled,
+            'telegram_bot_info': telegram_bot_info
         })
     
     def post(self, request):

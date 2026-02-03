@@ -120,6 +120,96 @@
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    
+    <script>
+        // Handle CSRF token expiration after server restart
+        document.addEventListener('DOMContentLoaded', function() {
+            const loginForm = document.querySelector('form');
+            
+            if (loginForm) {
+                loginForm.addEventListener('submit', function(e) {
+                    // Store form data
+                    const formData = new FormData(this);
+                    const username = formData.get('username');
+                    const password = formData.get('password');
+                    const remember = formData.get('remember');
+                    
+                    // Check if we have credentials stored from a failed attempt
+                    if (sessionStorage.getItem('csrf_retry')) {
+                        sessionStorage.removeItem('csrf_retry');
+                    }
+                    
+                    // Store credentials temporarily for retry
+                    if (username && password) {
+                        sessionStorage.setItem('login_attempt', JSON.stringify({
+                            username: username,
+                            password: password,
+                            remember: remember
+                        }));
+                    }
+                });
+            }
+            
+            // Check if we returned from a CSRF error (detected by URL or page reload)
+            if (sessionStorage.getItem('login_attempt') && !document.querySelector('.alert-danger')) {
+                // Only auto-submit if there's no error
+                const attempt = JSON.parse(sessionStorage.getItem('login_attempt'));
+                const timeSinceStore = Date.now() - (sessionStorage.getItem('login_timestamp') || 0);
+                
+                // Only retry within 5 seconds to avoid infinite loops
+                if (timeSinceStore < 5000) {
+                    sessionStorage.removeItem('login_attempt');
+                    sessionStorage.removeItem('login_timestamp');
+                }
+            }
+            
+            // Detect CSRF failure by checking if we're on a 403 error page
+            if (window.location.href.includes('403') || document.title.includes('403') || document.title.includes('Forbidden')) {
+                // Clear stored attempt and reload to get fresh CSRF token
+                if (sessionStorage.getItem('login_attempt')) {
+                    sessionStorage.setItem('csrf_retry', 'true');
+                    sessionStorage.setItem('login_timestamp', Date.now().toString());
+                    // Reload the login page to get a fresh CSRF token
+                    window.location.href = '{% url "login" %}';
+                }
+            }
+            
+            // Auto-refresh CSRF token on page focus (when returning to tab)
+            let isHidden = false;
+            document.addEventListener('visibilitychange', function() {
+                if (!document.hidden && isHidden) {
+                    // Page became visible again, check if CSRF token is stale
+                    const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]');
+                    if (csrfToken && csrfToken.value) {
+                        // Token exists, check age via cookie
+                        const cookieToken = getCookie('csrftoken');
+                        if (!cookieToken || cookieToken !== csrfToken.value) {
+                            // Token mismatch, reload page silently
+                            console.log('CSRF token mismatch detected, refreshing page...');
+                            window.location.reload();
+                        }
+                    }
+                }
+                isHidden = document.hidden;
+            });
+            
+            // Helper function to get cookie value
+            function getCookie(name) {
+                let cookieValue = null;
+                if (document.cookie && document.cookie !== '') {
+                    const cookies = document.cookie.split(';');
+                    for (let i = 0; i < cookies.length; i++) {
+                        const cookie = cookies[i].trim();
+                        if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                            cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                            break;
+                        }
+                    }
+                }
+                return cookieValue;
+            }
+        });
+    </script>
 </body>
 
 </html>

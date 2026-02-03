@@ -1,0 +1,65 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="es" data-bs-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}QAWAQ Vigilante AMI{% endblock %}</title>
+    
+    <!-- Favicon -->
+    <link rel="icon" type="image/svg+xml" href="{% static 'images/logo-small.svg' %}">
+    
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
+    <link rel="stylesheet" href="{% static 'css/style.css' %}">
+    
+    <style>
+        body {
+            background: url("{% static 'images/login-bg.webp' %}") no-repeat center center fixed;
+            background-size: cover;
+            min-height: 100vh;
+        }
+        .login-card {
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.1);
+        }
+        .logo-container {
+            background: white;
+            border-radius: 16px;
+            padding: 2rem;
+            margin-bottom: 2rem;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+        }
+        {% block extra_css %}{% endblock %}
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <div class="row min-vh-100 align-items-center justify-content-center">
+            <div class="col-md-5 col-lg-4">
+                <!-- Logo/Brand -->
+                <div class="text-center logo-container">
+                    <img src="{% static 'images/logo.svg' %}" alt="QAWAQ" style="width: 200px; height: auto;">
+                    <p class="text-muted mt-3 mb-0">VIGILANTE AMI</p>
+                </div>
+
+                <!-- Content (Card) -->
+                {% block content %}
+                {% endblock %}
+
+                <!-- Footer -->
+                <div class="text-center mt-4">
+                    <small class="text-white" style="text-shadow: 0 2px 4px rgba(0,0,0,0.3);">
+                        © 2026 QAWAQ Vigilante AMI
+                    </small>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    {% block extra_js %}{% endblock %}
+</body>
+</html>

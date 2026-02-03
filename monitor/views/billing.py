@@ -58,11 +58,14 @@ class CalendarioView(TemplateView):
         cal = calendar.monthcalendar(anio, mes)
         context['calendar'] = cal
         
-        # Get all events for this month
+        # Get all events for this month with portion meter counts
         eventos = EventoFacturacion.objects.filter(
             fecha__year=anio,
-            fecha__month=mes
-        ).select_related('porcion', 'ciclo')
+            fecha__month=mes,
+            tipo_evento='FACTURACION'
+        ).select_related('porcion', 'ciclo').annotate(
+            medidores_count=Count('porcion__medidores')
+        )
         
         # Group events by day
         eventos_por_dia = {}
@@ -76,7 +79,8 @@ class CalendarioView(TemplateView):
                 'color': evento.get_color(),
                 'tipo': evento.tipo_evento,
                 'porcion': evento.porcion.nombre,
-                'porcion_id': evento.porcion.id
+                'porcion_id': evento.porcion.id,
+                'medidores_count': evento.medidores_count
             })
         
         context['eventos_por_dia'] = eventos_por_dia
@@ -96,23 +100,51 @@ class EventoListView(ListView):
     def get_queryset(self):
         qs = super().get_queryset().select_related('porcion', 'ciclo').order_by('-fecha', '-created_at')
         
+        # Determine filter values
+        self.tipo_filter = self.request.GET.get('tipo', '')
+        self.porcion_filter = self.request.GET.get('porcion', '')
+        self.ciclo_filter = self.request.GET.get('ciclo', '') # Default to empty string (means "Current" in UI logic, or handle here)
+        
         # Filter by tipo_evento if specified
-        tipo = self.request.GET.get('tipo')
-        if tipo:
-            qs = qs.filter(tipo_evento=tipo)
+        if self.tipo_filter:
+            qs = qs.filter(tipo_evento=self.tipo_filter)
         
         # Filter by porcion if specified
-        porcion_id = self.request.GET.get('porcion')
-        if porcion_id:
-            qs = qs.filter(porcion_id=porcion_id)
+        if self.porcion_filter:
+            qs = qs.filter(porcion_id=self.porcion_filter)
+            
+        # Filter by Cycle
+        if self.ciclo_filter == 'all':
+            # No filtering, show all history
+            pass
+        elif self.ciclo_filter and self.ciclo_filter.isdigit():
+            # Specific cycle ID
+            qs = qs.filter(ciclo_id=self.ciclo_filter)
+        else:
+            # Default: Current Month/Year (if no filter or explicit empty)
+            # Or should we default to "All" if nothing selected?
+            # User request: "por defecto muestra solo el ciclo de facturación actual"
+            now = timezone.now()
+            qs = qs.filter(ciclo__mes=now.month, ciclo__anio=now.year)
+            # Update filter for context to reflect "default state" if needed, 
+            # but usually empty string in select matches the default option.
         
         return qs
     
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        context['tipo_filter'] = self.request.GET.get('tipo', '')
-        context['porcion_filter'] = self.request.GET.get('porcion', '')
+        
+        # Import here to avoid circular or early import issues if any, though top-level is fine usually.
+        # But 'CicloFacturacion' needs to be imported at top level ideally.
+        from ..models import CicloFacturacion
+        
+        context['tipo_filter'] = self.tipo_filter
+        context['porcion_filter'] = self.porcion_filter
+        context['ciclo_filter'] = self.ciclo_filter
+        
         context['porciones'] = Porcion.objects.all().order_by('nombre')
+        context['ciclos'] = CicloFacturacion.objects.all() # Ordered by default meta (-anio, -mes)
+        
         return context
 
 

@@ -363,9 +363,11 @@ class MapaView(TemplateView):
         
         if estado_filter:
             if estado_filter == 'ONLINE':
-                equipos = equipos.filter(is_online=True)
+                equipos = equipos.filter(is_online=True, estado='ACTIVO')
             elif estado_filter == 'OFFLINE':
-                equipos = equipos.filter(is_online=False)
+                equipos = equipos.filter(is_online=False, estado='ACTIVO')
+            elif estado_filter == 'MANTENIMIENTO':
+                equipos = equipos.filter(estado='EN_MANTENIMIENTO')
 
         if porcion_filter:
             equipos = equipos.filter(medidores_asociados__porcion_id=porcion_filter).distinct()
@@ -373,9 +375,16 @@ class MapaView(TemplateView):
         # Serialize equipos to JSON
         equipos_data = []
         for equipo in equipos:
-            # Determine marker color based on is_online status
-            color = 'green' if equipo.is_online else 'red'
-            estado_text = 'Online' if equipo.is_online else 'Offline'
+            # Determine marker color logic: Maintenance (Yellow) > Offline (Red) > Online (Green)
+            if equipo.estado == 'EN_MANTENIMIENTO':
+                color = '#ffc107' # Bright yellow
+                estado_text = 'Mantenimiento'
+            elif not equipo.is_online:
+                color = 'red'
+                estado_text = 'Offline'
+            else:
+                color = 'green'
+                estado_text = 'Online'
             
             equipos_data.append({
                 'id': equipo.id,
@@ -402,3 +411,30 @@ class MapaView(TemplateView):
         context['total_equipos'] = len(equipos_data)
         
         return context
+
+@admin_required_method
+class ToggleMaintenanceView(View):
+    """Toggle maintenance status for an equipment."""
+    
+    def post(self, request, pk):
+        equipo = get_object_or_404(Equipo, pk=pk)
+        
+        # Toggle boolean
+        equipo.en_mantenimiento = not equipo.en_mantenimiento
+        
+        # Sync with estado field if appropriate
+        if equipo.en_mantenimiento:
+            if equipo.estado == 'ACTIVO':
+                equipo.estado = 'EN_MANTENIMIENTO'
+        else:
+            if equipo.estado == 'EN_MANTENIMIENTO':
+                equipo.estado = 'ACTIVO'
+        
+        equipo.save()
+        
+        # If HTMX, return just the row
+        if request.htmx:
+            return render(request, 'monitor/partials/equipo_list_rows.html', {'equipos': [equipo]})
+        
+        messages.success(request, f'Estado de mantenimiento de "{equipo.id_equipo}" actualizado.')
+        return redirect('equipo_list')

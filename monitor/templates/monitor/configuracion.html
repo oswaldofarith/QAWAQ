@@ -94,6 +94,66 @@
                 </div>
             </div>
         </div>
+        
+        <!-- Telegram Notifications Configuration -->
+        <div class="card-dashboard p-4 mt-4">
+            <h6 class="text-white mb-3">
+                <i class="bi bi-telegram me-2"></i>Configuración de Telegram
+            </h6>
+            <p class="text-secondary small mb-3">
+                Configura el bot de Telegram para enviar notificaciones de equipos críticos
+            </p>
+            
+            <div class="mb-3">
+                <label class="form-label text-white">Estado del Bot</label>
+                <div>
+                    {% if telegram_enabled %}
+                        <span class="badge bg-success">
+                            <i class="bi bi-check-circle me-1"></i>Habilitado
+                        </span>
+                    {% else %}
+                        <span class="badge bg-warning">
+                            <i class="bi bi-exclamation-triangle me-1"></i>No configurado
+                        </span>
+                    {% endif %}
+                </div>
+            </div>
+            
+            <div class="alert alert-info" role="alert">
+                <h6 class="alert-heading"><i class="bi bi-info-circle me-2"></i>Configuración del Bot</h6>
+                <p class="mb-2">Para configurar las notificaciones de Telegram:</p>
+                <ol class="mb-2">
+                    <li>Crea un bot con <strong>@BotFather</strong> en Telegram</li>
+                    <li>Copia el token del bot</li>
+                    <li>Agrégalo a tu archivo <code>.env</code>:
+                        <pre class="bg-dark text-light p-2 rounded mt-1"><code>TELEGRAM_BOT_TOKEN=tu_bot_token_aquí
+TELEGRAM_ENABLED=True</code></pre>
+                    </li>
+                    <li>Reinicia el servidor Django</li>
+                    <li>Cada usuario debe configurar su Chat ID en <strong>Mi Perfil</strong></li>
+                </ol>
+                <p class="mb-0 small">
+                    <strong>Prueba tu configuración:</strong>
+                    <code>python manage.py test_telegram --check</code>
+                </p>
+            </div>
+            
+            {% if telegram_enabled and telegram_bot_info %}
+            <div class="alert alert-success" role="alert">
+                <h6 class="alert-heading"><i class="bi bi-check-circle me-2"></i>Bot Conectado</h6>
+                <div class="row g-2">
+                    <div class="col-md-6">
+                        <small class="text-muted">Nombre del Bot:</small>
+                        <div><strong>{{ telegram_bot_info.bot_name }}</strong></div>
+                    </div>
+                    <div class="col-md-6">
+                        <small class="text-muted">Username:</small>
+                        <div><strong>@{{ telegram_bot_info.bot_username }}</strong></div>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+        </div>
     </div>
 </div>
 {% endblock %}

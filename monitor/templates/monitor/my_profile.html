@@ -75,6 +75,69 @@
                 
                 <hr class="my-4">
                 
+                <!-- Notification Preferences -->
+                <div class="mb-4">
+                    <h6 class="mb-3">
+                        <i class="bi bi-bell-fill me-2"></i>Preferencias de Notificaciones
+                    </h6>
+                    <p class="text-secondary small mb-3">
+                        Configura cómo deseas recibir alertas sobre equipos críticos que fallen
+                    </p>
+                    
+                    <!-- Email Notifications -->
+                    <div class="mb-3">
+                        <div class="form-check form-switch">
+                            {{ form.email_notifications }}
+                            <label class="form-check-label" for="id_email_notifications">
+                                <strong>{{ form.email_notifications.label }}</strong>
+                            </label>
+                        </div>
+                        <small class="text-secondary d-block ms-5">
+                            Recibir alertas de equipos críticos por correo electrónico
+                        </small>
+                        {% if form.email_notifications.errors %}
+                        <div class="text-danger small mt-1 ms-5">{{ form.email_notifications.errors }}</div>
+                        {% endif %}
+                    </div>
+                    
+                    <!-- Telegram Notifications -->
+                    <div class="mb-3">
+                        <div class="form-check form-switch">
+                            {{ form.telegram_notifications }}
+                            <label class="form-check-label" for="id_telegram_notifications">
+                                <strong>{{ form.telegram_notifications.label }}</strong>
+                            </label>
+                        </div>
+                        <small class="text-secondary d-block ms-5">
+                            Recibir alertas de equipos críticos por Telegram (requiere Chat ID)
+                        </small>
+                        {% if form.telegram_notifications.errors %}
+                        <div class="text-danger small mt-1 ms-5">{{ form.telegram_notifications.errors }}</div>
+                        {% endif %}
+                    </div>
+                    
+                    <!-- Telegram Chat ID -->
+                    <div class="mb-3">
+                        <label for="id_telegram_chat_id" class="form-label">{{ form.telegram_chat_id.label }}</label>
+                        {{ form.telegram_chat_id }}
+                        {% if form.telegram_chat_id.errors %}
+                        <div class="text-danger small mt-1">{{ form.telegram_chat_id.errors }}</div>
+                        {% endif %}
+                        <div class="alert alert-info mt-2" role="alert">
+                            <i class="bi bi-info-circle me-2"></i>
+                            <strong>¿Cómo obtener tu Chat ID?</strong>
+                            <ol class="mt-2 mb-0">
+                                <li>Abre Telegram y busca <strong>@userinfobot</strong></li>
+                                <li>Envíale cualquier mensaje</li>
+                                <li>El bot te responderá con tu Chat ID (un número)</li>
+                                <li>Copia ese número y pégalo aquí</li>
+                            </ol>
+                        </div>
+                    </div>
+                </div>
+                
+                <hr class="my-4">
+                
                 <!-- Account Information (Read-only) -->
                 <h6 class="mb-3">Información de Cuenta</h6>
                 <div class="row g-3">

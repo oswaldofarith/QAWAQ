@@ -1,0 +1,154 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load monitor_extras %}
+
+{% block header_title %}Servidores y Sistemas{% endblock %}
+{% block header_subtitle %}Monitoreo de Infraestructura HES{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-12 text-end">
+        <a href="{% url 'sistema_create' %}" class="btn btn-primary me-2">
+            <i class="bi bi-folder-plus"></i> Nuevo Sistema
+        </a>
+        <a href="{% url 'servidor_create' %}" class="btn btn-outline-primary">
+            <i class="bi bi-hdd-plus"></i> Nuevo Servidor
+        </a>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-12">
+        {% for sistema in sistemas %}
+        <div class="card mb-4">
+            <div class="card-header d-flex justify-content-between align-items-center" 
+                 style="{% if sistema.marca.color %}background-color: {{ sistema.marca.color }}; color: white;{% else %}background-color: #f8f9fa;{% endif %}">
+                <div>
+                    <h5 class="mb-0 fw-bold">{{ sistema.nombre }}</h5>
+                    {% if sistema.marca %}
+                    <small class="{% if sistema.marca.color %}text-white-50{% else %}text-muted{% endif %}">{{ sistema.marca.nombre }}</small>
+                    {% endif %}
+                </div>
+                <div>
+                    <span class="badge {% if sistema.marca.color %}bg-white text-dark{% else %}bg-secondary{% endif %} me-2">{{ sistema.servidores.count }} Servidores</span>
+                    <div class="btn-group">
+                        <a href="{% url 'servidor_create' %}?sistema={{ sistema.id }}" class="btn btn-sm {% if sistema.marca.color %}btn-outline-light{% else %}btn-outline-secondary{% endif %}" title="Agregar Servidor">
+                            <i class="bi bi-plus-lg"></i>
+                        </a>
+                        <a href="{% url 'sistema_update' sistema.id %}" class="btn btn-sm {% if sistema.marca.color %}btn-outline-light{% else %}btn-outline-secondary{% endif %}" title="Editar Sistema">
+                            <i class="bi bi-pencil"></i>
+                        </a>
+                        <button type="button" class="btn btn-sm {% if sistema.marca.color %}btn-outline-light{% else %}btn-outline-danger{% endif %}" title="Eliminar Sistema" 
+                                data-bs-toggle="modal" data-bs-target="#deleteSistema{{ sistema.id }}">
+                            <i class="bi bi-trash"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Delete Modal -->
+            <div class="modal fade" id="deleteSistema{{ sistema.id }}" tabindex="-1" aria-hidden="true">
+                <div class="modal-dialog">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title" style="color: var(--bs-body-color);">Confirmar Eliminación</h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                        </div>
+                        <div class="modal-body text-center" style="color: var(--bs-body-color);">
+                            <p>¿Estás seguro de que deseas eliminar el sistema <strong>{{ sistema.nombre }}</strong>?</p>
+                            <p class="text-danger small">Esta acción también eliminará todos sus servidores asociados.</p>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                            <form action="{% url 'sistema_delete' sistema.id %}" method="post">
+                                {% csrf_token %}
+                                <button type="submit" class="btn btn-danger">Eliminar</button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card-body p-0">
+                {% if sistema.servidores.count > 0 %}
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th style="width: 20%;">Nombre</th>
+                                <th style="width: 15%;">IP</th>
+                                <th style="width: 15%;">Tipo</th>
+                                <th style="width: 15%;">OS</th>
+                                <th style="width: 10%;">Estado</th>
+                                <th style="width: 15%;">Última dect.</th>
+                                <th style="width: 10%;">Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for servidor in sistema.servidores.all %}
+                            <tr>
+                                <td class="fw-medium">{{ servidor.nombre }}</td>
+                                <td class="font-monospace">{{ servidor.ip_address }}</td>
+                                <td>{{ servidor.get_tipo_display }}</td>
+                                <td>{{ servidor.sistema_operativo|default:"-" }}</td>
+                                <td>
+                                    {% if servidor.estado == 'ONLINE' %}
+                                    <span class="badge bg-success">ONLINE</span>
+                                    {% else %}
+                                    <span class="badge bg-danger">OFFLINE</span>
+                                    {% endif %}
+                                </td>
+                                <td>{{ servidor.last_seen|human_time }}</td>
+                                <td>
+                                    <div class="btn-group">
+                                        <a href="{% url 'servidor_update' servidor.id %}" class="btn btn-sm btn-outline-secondary" title="Editar">
+                                            <i class="bi bi-pencil"></i>
+                                        </a>
+                                        <button type="button" class="btn btn-sm btn-outline-danger" title="Eliminar"
+                                                data-bs-toggle="modal" data-bs-target="#deleteServidor{{ servidor.id }}">
+                                            <i class="bi bi-trash"></i>
+                                        </button>
+                                    </div>
+                                    
+                                    <!-- Delete Modal Server -->
+                                    <div class="modal fade" id="deleteServidor{{ servidor.id }}" tabindex="-1" aria-hidden="true">
+                                        <div class="modal-dialog">
+                                            <div class="modal-content">
+                                                <div class="modal-header">
+                                                    <h5 class="modal-title">Confirmar Eliminación</h5>
+                                                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                                                </div>
+                                                <div class="modal-body text-center">
+                                                    <p>¿Estás seguro de que deseas eliminar el servidor <strong>{{ servidor.nombre }}</strong>?</p>
+                                                </div>
+                                                <div class="modal-footer">
+                                                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                                                    <form action="{% url 'servidor_delete' servidor.id %}" method="post">
+                                                        {% csrf_token %}
+                                                        <button type="submit" class="btn btn-danger">Eliminar</button>
+                                                    </form>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <div class="p-3 text-center text-muted">
+                    No hay servidores registrados en este sistema.
+                </div>
+                {% endif %}
+            </div>
+        </div>
+        {% empty %}
+        <div class="alert alert-info" role="alert">
+            No hay sistemas registrados. <a href="/admin/monitor/sistema/add/" class="alert-link">Agregar uno desde el admin</a>.
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endblock %}

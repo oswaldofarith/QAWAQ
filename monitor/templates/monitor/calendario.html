@@ -44,25 +44,13 @@
                 <div class="row">
                     <div class="col-md-3 col-6 mb-2">
                         <div class="d-flex align-items-center">
-                            <span class="badge me-2" style="background-color: #FFC0CB;">⬤</span>
-                            <small class="text-muted">Prefacturación Masiva</small>
-                        </div>
-                    </div>
-                    <div class="col-md-3 col-6 mb-2">
-                        <div class="d-flex align-items-center">
-                            <span class="badge me-2" style="background-color: #DC2626;">⬤</span>
+                            <span class="badge me-2" style="background-color: #EF5350;">⬤</span>
                             <small class="text-muted">Facturación Masiva</small>
                         </div>
                     </div>
                     <div class="col-md-3 col-6 mb-2">
                         <div class="d-flex align-items-center">
                             <span class="badge me-2" style="background-color: #87CEEB;">⬤</span>
-                            <small class="text-muted">Prefacturación Especial</small>
-                        </div>
-                    </div>
-                    <div class="col-md-3 col-6 mb-2">
-                        <div class="d-flex align-items-center">
-                            <span class="badge me-2" style="background-color: #2563EB;">⬤</span>
                             <small class="text-muted">Facturación Especial</small>
                         </div>
                     </div>
@@ -103,9 +91,12 @@
                                             {% for evento in eventos_por_dia|get_item:day %}
                                                 <a href="{% url 'equipo_list' %}?porcion={{ evento.porcion_id }}" class="text-decoration-none d-block">
                                                     <div class="badge text-white text-truncate w-100" 
-                                                         style="background-color: {{ evento.color }}; font-size: 1.05rem;"
+                                                         style="background-color: {{ evento.color }}; font-size: 0.85rem;"
                                                          title="{{ evento.nombre }}">
                                                         {{ evento.porcion }}
+                                                        <span style="font-size: 0.75rem; font-weight: normal; opacity: 0.9; margin-left: 2px;">
+                                                            ({{ evento.medidores_count }} <i class="bi bi-speedometer2" style="font-size: 0.75rem;"></i>)
+                                                        </span>
                                                     </div>
                                                 </a>
                                             {% endfor %}

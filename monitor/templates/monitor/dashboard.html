@@ -6,7 +6,7 @@
 {% block content %}
 <!-- Billing Events Alert -->
 {% if eventos_hoy or eventos_manana %}
-<div class="alert alert-info alert-dismissible fade show mb-4" role="alert">
+<div class="alert alert-info alert-dismissible fade show mb-4 alert-permanent" role="alert">
     <div class="d-flex align-items-start">
         <i class="bi bi-calendar-check fs-4 me-3"></i>
         <div class="flex-grow-1">
@@ -44,8 +44,16 @@
             </div>
 
             <div class="d-flex align-items-baseline gap-2 mb-3">
-                <span class="metric-value">{{ brand.down }}</span>
-                <span class="badge bg-danger bg-opacity-10 text-danger px-2 py-1 rounded">Caídos</span>
+                <div class="d-flex align-items-baseline gap-1">
+                    <span class="metric-value">{{ brand.down }}</span>
+                    <span class="badge bg-danger bg-opacity-10 text-danger px-2 py-1 rounded small">Caídos</span>
+                </div>
+                {% if brand.maintenance > 0 %}
+                <div class="d-flex align-items-baseline gap-1 ms-2">
+                    <span class="metric-value-sm text-warning" style="font-size: 1.1rem; font-weight: 600;">{{ brand.maintenance }}</span>
+                    <span class="badge bg-warning bg-opacity-10 text-warning px-2 py-1 rounded small" style="font-size: 0.7rem;">Mant.</span>
+                </div>
+                {% endif %}
             </div>
 
             <div class="mb-2">
@@ -105,7 +113,7 @@
                         {% if dev.billing_priority %}
                             <span class="badge bg-warning text-dark">{{ dev.billing_label }}</span>
                         {% else %}
-                            <span class="text-white-50 small">{{ dev.billing_label }}</span>
+                            <span class="text-white small fw-bold">{{ dev.billing_label }}</span>
                         {% endif %}
                     </td>
                     <td class="text-white text-center">{{ dev.afectacion_str }}</td>

@@ -50,6 +50,14 @@
         font-size: 0.875rem;
     }
     
+    .status-badge-maintenance {
+        background-color: #ffc107;
+        color: #212529;
+        padding: 0.25rem 0.5rem;
+        border-radius: 4px;
+        font-size: 0.875rem;
+    }
+    
     /* Custom cluster styles */
     .marker-cluster-custom {
         text-align: center;
@@ -111,6 +119,7 @@
                 <option value="">Todos</option>
                 <option value="ONLINE" {% if estado_filter == "ONLINE" %}selected{% endif %}>Online</option>
                 <option value="OFFLINE" {% if estado_filter == "OFFLINE" %}selected{% endif %}>Offline</option>
+                <option value="MANTENIMIENTO" {% if estado_filter == "MANTENIMIENTO" %}selected{% endif %}>Mantenimiento</option>
             </select>
         </div>
         <div class="col-md-3">
@@ -174,7 +183,8 @@ document.addEventListener('DOMContentLoaded', function() {
         const childMarkers = cluster.getAllChildMarkers();
         let offlineCount = 0, onlineCount = 0;
         childMarkers.forEach(marker => {
-            if (marker.options.equipoData.color === 'red') offlineCount++;
+            // Treat yellow (maintenance) as offline for cluster coloring
+            if (marker.options.equipoData.color === 'red' || marker.options.equipoData.color === '#ffc107') offlineCount++;
             else if (marker.options.equipoData.color === 'green') onlineCount++;
         });
 
@@ -197,7 +207,10 @@ document.addEventListener('DOMContentLoaded', function() {
             equipoData: equipo 
         });
         
-        const statusClass = equipo.color === 'green' ? 'status-badge-online' : 'status-badge-offline';
+        let statusClass = 'status-badge-online';
+        if (equipo.color === 'red') statusClass = 'status-badge-offline';
+        if (equipo.color === '#ffc107') statusClass = 'status-badge-maintenance';
+        
         const popupContent = `
             <div style="min-width: 200px;">
                 <h6 class="mb-2"><i class="bi bi-router"></i> ${equipo.id_equipo}</h6>

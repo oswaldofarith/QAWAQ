@@ -20,6 +20,15 @@
                                 </select>
                             </div>
                             <div class="col-md-4">
+                                <select name="ciclo" class="form-select" onchange="this.form.submit()">
+                                    <option value="" {% if not ciclo_filter %}selected{% endif %}>Mes Actual</option>
+                                    <option value="all" {% if ciclo_filter == 'all' %}selected{% endif %}>Todos los ciclos</option>
+                                    {% for ciclo in ciclos %}
+                                    <option value="{{ ciclo.id }}" {% if ciclo_filter == ciclo.id|stringformat:"s" %}selected{% endif %}>{{ ciclo }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <div class="col-md-4">
                                 <select name="porcion" class="form-select" onchange="this.form.submit()">
                                     <option value="">Todas las porciones</option>
                                     {% for porcion in porciones %}
