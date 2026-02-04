@@ -736,6 +736,7 @@ class ImportMedidoresView(View):
         imported_count = 0
         rejected_by_marca = {}
         rejected_total = 0
+        medidores_to_create = []
         
         for record in processed_data:
             try:
@@ -759,17 +760,21 @@ class ImportMedidoresView(View):
                     )
                 
                 # Create medidor with validated marca
-                Medidor.objects.create(
+                medidores_to_create.append(Medidor(
                     numero=record['numero'],
                     marca=marca_nombre,
                     porcion=porcion
-                )
+                ))
                 imported_count += 1
                 
             except Exception as e:
                 logger = logging.getLogger(__name__)
                 logger.error(f"Error creating medidor {record.get('numero', 'N/A')}: {str(e)}")
                 continue
+        
+        # Bulk create in batches
+        if medidores_to_create:
+            Medidor.objects.bulk_create(medidores_to_create, batch_size=5000)
         
         total_after = Medidor.objects.count()
         
