@@ -594,6 +594,8 @@ class ImportMedidoresView(View):
     
     def _process_xlsx_data(self, xlsx_file):
         """Process XLSX file with all transformations."""
+        logger = logging.getLogger(__name__)
+        
         # Read Excel file
         df = pd.read_excel(xlsx_file, header=None)
         
