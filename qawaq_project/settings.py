@@ -30,6 +30,7 @@ SECRET_KEY = config('SECRET_KEY', default='django-insecure-7=f!kfq48(a0ke^go^(dm
 # DEBUG already defined above for Sentry
 
 ALLOWED_HOSTS = config('ALLOWED_HOSTS', default='localhost,127.0.0.1,172.23.20.44', cast=Csv())
+CSRF_TRUSTED_ORIGINS = config('CSRF_TRUSTED_ORIGINS', default='http://localhost,http://127.0.0.1', cast=Csv())
 
 # Application definition
 
