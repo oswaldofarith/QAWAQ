@@ -146,19 +146,37 @@
 
     <!-- Map Card -->
     <div class="col-lg-4">
-        <div class="card-dashboard h-100 p-0 overflow-hidden position-relative">
-            <div
-                class="p-3 bg-dark bg-opacity-50 position-absolute top-0 start-0 z-1 w-100 d-flex justify-content-between">
-                <div>
-                    <small class="text-white fw-bold d-block">Ubicación</small>
-                    <small class="text-white fw-bold">Geográfica</small>
+        <div class="card-dashboard h-100 p-0 overflow-hidden position-relative d-flex flex-column">
+            <div id="map" class="flex-grow-1 w-100" style="min-height: 350px; background-color: #1a1f2c;"></div>
+            
+            <!-- Map Footer with Coordinates & Action -->
+            <div class="p-3 bg-dark border-top border-secondary border-opacity-25 d-flex justify-content-between align-items-center">
+                <div class="d-flex align-items-center gap-2">
+                    <div>
+                        <label class="text-secondary small fw-bold text-uppercase d-block mb-0" style="font-size: 0.7rem;">Coordenadas</label>
+                        <div class="font-monospace text-white small">
+                            {{ equipo.latitud|default:"-" }}, {{ equipo.longitud|default:"-" }}
+                        </div>
+                    </div>
+                    {% if equipo.latitud and equipo.longitud %}
+                    <button class="btn btn-link text-secondary p-0 ms-1"
+                        onclick="navigator.clipboard.writeText('{{ equipo.latitud }}, {{ equipo.longitud }}'); this.innerHTML='<i class=\'bi bi-check-lg text-success\'></i>'; setTimeout(() => this.innerHTML='<i class=\'bi bi-clipboard\'></i>', 2000)"
+                        title="Copiar coordenadas">
+                        <i class="bi bi-clipboard"></i>
+                    </button>
+                    {% endif %}
                 </div>
-                <div class="text-end font-monospace small text-secondary">
-                    <div>{{ equipo.latitud }}</div>
-                    <div>{{ equipo.longitud }}</div>
-                </div>
+                
+                {% if equipo.latitud and equipo.longitud %}
+                <a href="https://www.google.com/maps/search/?api=1&query={{ equipo.latitud }},{{ equipo.longitud }}&z=13" 
+                   target="_blank" 
+                   class="btn btn-outline-light border-0"
+                   title="Abrir en Google Maps">
+                    <!-- Google Maps-like Icon using Bootstrap Icons -->
+                    <i class="bi bi-geo-alt-fill fs-4" style="color: #EA4335;"></i>
+                </a>
+                {% endif %}
             </div>
-            <div id="map" class="h-100 w-100" style="min-height: 400px; background-color: #1a1f2c;"></div>
         </div>
     </div>
 

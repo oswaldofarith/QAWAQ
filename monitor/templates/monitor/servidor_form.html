@@ -31,14 +31,56 @@
                     {% endfor %}
 
                     <div class="d-flex justify-content-between mt-4">
-                        <a href="{% url 'servidor_list' %}" class="btn btn-outline-secondary">Cancelar</a>
-                        <button type="submit" class="btn btn-primary">
-                            <i class="bi bi-save"></i> Guardar Servidor
-                        </button>
+                        <div>
+                            {% if servidor %}
+                            <button type="button" class="btn btn-outline-danger" data-bs-toggle="modal" data-bs-target="#deleteModal">
+                                <i class="bi bi-trash"></i> Eliminar
+                            </button>
+                            {% endif %}
+                        </div>
+                        <div class="d-flex gap-2">
+                            <a href="{% url 'servidor_list' %}" class="btn btn-outline-secondary">Cancelar</a>
+                            <button type="submit" class="btn btn-primary">
+                                <i class="bi bi-save"></i> Guardar Servidor
+                            </button>
+                        </div>
                     </div>
                 </form>
             </div>
         </div>
     </div>
 </div>
+
+{% if servidor %}
+<!-- Delete Modal -->
+<div class="modal fade" id="deleteModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title text-danger">⚠️ Zona de Peligro</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body text-center">
+                <div class="mb-3">
+                    <i class="bi bi-exclamation-triangle-fill text-warning display-4"></i>
+                </div>
+                <h5 class="mb-3">¿Estás seguro de eliminar este servidor?</h5>
+                <p class="mb-1">Vas a eliminar: <strong>{{ servidor.nombre }}</strong></p>
+                <p class="text-monospace text-muted">{{ servidor.ip_address }}</p>
+                
+                <div class="alert alert-danger mb-0 text-start small mt-3">
+                    <i class="bi bi-info-circle me-1"></i> Esta acción no se puede deshacer. Se perderá todo el historial de disponibilidad (pings, métricas).
+                </div>
+            </div>
+            <div class="modal-footer bg-light">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <form action="{% url 'servidor_delete' servidor.id %}" method="post">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-danger fw-bold">Sí, Eliminar Definitivamente</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
 {% endblock %}

@@ -165,14 +165,21 @@
 
 
         //2. Gráfico Principal de Latencia (Datos Reales)
-        var latencyData = {{ latency_data| safe }};
-    var latencyLabels = {{ latency_labels| safe }};
+        var latencyDataFibra = {{ latency_data_fibra| safe }};
+        var latencyDataCelular = {{ latency_data_celular| safe }};
+        var latencyLabels = {{ latency_labels| safe }};
 
     var latencyOptions = {
-        series: [{
-            name: 'Latencia',
-            data: latencyData
-        }],
+        series: [
+            {
+                name: 'Fibra Óptica',
+                data: latencyDataFibra
+            },
+            {
+                name: 'Celular',
+                data: latencyDataCelular
+            }
+        ],
         chart: {
             height: 350,
             type: 'area',
@@ -187,7 +194,7 @@
             verticalAlign: 'middle',
             style: { color: '#8e95a3', fontSize: '16px' }
         },
-        colors: ['#0ea5e9'],
+        colors: ['#0ea5e9', '#f59e0b'], // Blue for Fiber, Orange for Cellular
         fill: {
             type: 'gradient',
             gradient: {
@@ -213,7 +220,11 @@
             tooltip: { enabled: false }
         },
         yaxis: {
-            labels: { style: { colors: '#8e95a3' } }
+            labels: { style: { colors: '#8e95a3' } },
+            title: {
+                 text: 'Milisegundos (ms)',
+                 style: { color: '#8e95a3' }
+            }
         },
         grid: {
             borderColor: '#374151',
@@ -222,6 +233,13 @@
         theme: { mode: 'dark' },
         tooltip: {
             theme: 'dark'
+        },
+        legend: {
+            position: 'top',
+            horizontalAlign: 'right',
+            labels: {
+                colors: '#D1D5DB'
+            }
         }
     };
 

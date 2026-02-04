@@ -37,26 +37,52 @@ class DashboardView(TemplateView):
         now = timezone.now()
         start_24h = now - datetime.timedelta(hours=24)
         
-        latency_qs = HistorialDisponibilidad.objects.filter(
+        # Base QuerySet for hourly grouping
+        base_qs = HistorialDisponibilidad.objects.filter(
             timestamp__gte=start_24h,
             estado='ONLINE'
         ).annotate(
             hour=TruncHour('timestamp', output_field=DateTimeField(), tzinfo=current_tz)
+        )
+
+        # 1. FIBRA Average
+        latency_fibra = base_qs.filter(
+            equipo__medio_comunicacion='FIBRA'
         ).values('hour').annotate(
             avg_latency=Avg('latencia_ms')
         ).order_by('hour')
         
-        latency_labels = []
-        latency_values = []
-        for item in latency_qs:
-            # Force server-side formatted string labels
-            label = item['hour'].strftime('%H:%M')
-            val = round(item['avg_latency'], 1)
-            latency_labels.append(label)
-            latency_values.append(val)
+        # 2. CELULAR Average
+        latency_celular = base_qs.filter(
+            equipo__medio_comunicacion='CELULAR'
+        ).values('hour').annotate(
+            avg_latency=Avg('latencia_ms')
+        ).order_by('hour')
+        
+        # Helper to create time series dict
+        def create_time_series(queryset):
+            data = {}
+            for item in queryset:
+                label = item['hour'].strftime('%H:%M')
+                val = round(item['avg_latency'], 1)
+                data[label] = val
+            return data
+
+        fibra_map = create_time_series(latency_fibra)
+        celular_map = create_time_series(latency_celular)
+        
+        # Generate unified labels (all hours found in either set)
+        all_labels = sorted(list(set(list(fibra_map.keys()) + list(celular_map.keys()))))
+        
+        # Align data to labels (fill missing with None or previous value? ApexCharts handles None as gap)
+        # For better visual, we'll align values. If a timestamp is missing for one series, we send null
+        
+        fibra_values = [fibra_map.get(label, None) for label in all_labels]
+        celular_values = [celular_map.get(label, None) for label in all_labels]
             
-        context['latency_labels'] = json.dumps(latency_labels, cls=DjangoJSONEncoder)
-        context['latency_data'] = json.dumps(latency_values, cls=DjangoJSONEncoder)
+        context['latency_labels'] = json.dumps(all_labels, cls=DjangoJSONEncoder)
+        context['latency_data_fibra'] = json.dumps(fibra_values, cls=DjangoJSONEncoder)
+        context['latency_data_celular'] = json.dumps(celular_values, cls=DjangoJSONEncoder)
         
         # 3. Packet Loss
         avg_packet_loss = HistorialDisponibilidad.objects.filter(
