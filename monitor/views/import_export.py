@@ -773,9 +773,16 @@ class ImportMedidoresView(View):
                 porcion_nombre = record['porcion']
                 porcion = Porcion.objects.filter(nombre__iexact=porcion_nombre).first()
                 if not porcion:
+                    # Determine type based on suffix
+                    tipo_porcion = 'MASIVO'
+                    if porcion_nombre.upper().endswith('E'):
+                        tipo_porcion = 'ESPECIAL'
+                    elif porcion_nombre.upper().endswith('I'):
+                        tipo_porcion = 'MASIVO'
+                        
                     porcion = Porcion.objects.create(
                         nombre=porcion_nombre,
-                        tipo='MASIVO'  # Default type
+                        tipo=tipo_porcion
                     )
                 
                 # Create medidor with validated marca
