@@ -17,3 +17,4 @@ safety
 PyJWT>=2.8.0
 python-telegram-bot>=20.0
 pysnmp>=4.4.12
+xhtml2pdf
