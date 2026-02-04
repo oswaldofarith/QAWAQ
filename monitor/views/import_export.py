@@ -609,16 +609,23 @@ class ImportMedidoresView(View):
         # Remove header row if present (skip first row if it looks like a header)
         if len(data) > 0 and data.iloc[0]['numero'] and isinstance(data.iloc[0]['numero'], str):
             if not str(data.iloc[0]['numero']).replace('.', '').replace('-', '').isdigit():
+                logger.info(f"Removing header row: {data.iloc[0].tolist()}")
                 data = data.iloc[1:]
         
         # Remove empty rows
+        initial_count = len(data)
         data = data.dropna(subset=['numero', 'marca_original', 'porcion_original'])
+        logger.info(f"Rows after dropna: {len(data)} (dropped {initial_count - len(data)})")
         
         # Convert to string and clean
         data['numero'] = data['numero'].astype(str).str.strip()
         data['marca_original'] = data['marca_original'].astype(str).str.strip().str.upper()
         data['porcion_original'] = data['porcion_original'].astype(str).str.strip()
         
+        # Log found brands
+        unique_brands = data['marca_original'].unique()
+        logger.info(f"Found unique brands: {unique_brands}")
+
         # Remove empty rows again after conversion
         data = data[data['numero'] != '']
         data = data[data['marca_original'] != '']
@@ -636,16 +643,26 @@ class ImportMedidoresView(View):
         data['marca'] = data['marca_original'].map(marca_map)
         
         # Filter out unwanted marcas (ACLARA, SMART, and any others not in our map)
+        count_before_marca = len(data)
         data = data[data['marca'].notna()]
+        logger.info(f"Rows after Brand Filter: {len(data)} (dropped {count_before_marca - len(data)})")
         
         # Normalize porciones
         data['porcion'] = data['porcion_original'].apply(self._normalize_porcion)
         
+        # Log unique portions
+        unique_portions = data['porcion'].unique()
+        logger.info(f"Found unique normalized portions (sample 10): {list(unique_portions)[:10]}")
+
         # Filter out porciones ending in M
+        count_before_m = len(data)
         data = data[~data['porcion'].str.upper().str.endswith('M')]
+        logger.info(f"Rows after 'M' Filter: {len(data)} (dropped {count_before_m - len(data)})")
         
         # Filter only porciones ending in I or E
+        count_before_ie = len(data)
         data = data[data['porcion'].str.upper().str.endswith(('I', 'E'))]
+        logger.info(f"Rows after 'I/E' Filter: {len(data)} (dropped {count_before_ie - len(data)})")
         
         # Remove duplicates based on numero
         data = data.drop_duplicates(subset=['numero'], keep='first')
