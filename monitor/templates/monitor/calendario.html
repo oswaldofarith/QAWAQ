@@ -4,123 +4,298 @@
 {% load l10n %}
 
 {% block header_title %}Calendario de Facturación{% endblock %}
-{% block header_subtitle %}{{ mes_nombre }} {{ anio|unlocalize }}{% endblock %}
+{% block header_subtitle %}Gestión de eventos de facturación{% endblock %}
 
 {% block content %}
-<div class="row mb-4">
-    <div class="col-md-12">
-        <!-- Calendar Controls -->
-        <div class="card border mb-3">
-            <div class="card-body">
-                <div class="d-flex justify-content-between align-items-center">
-                    <a href="{% url 'calendario_mes' prev_anio prev_mes %}" class="btn btn-outline-secondary">
-                        <i class="bi bi-chevron-left"></i> {{ prev_mes|stringformat:"02d" }}/{{ prev_anio|unlocalize }}
-                    </a>
-                    
-                    <h4 class="mb-0">{{ mes_nombre }} {{ anio|unlocalize }}</h4>
-                    
-                    <a href="{% url 'calendario_mes' next_anio next_mes %}" class="btn btn-outline-secondary">
-                        {{ next_mes|stringformat:"02d" }}/{{ next_anio|unlocalize }} <i class="bi bi-chevron-right"></i>
-                    </a>
-                </div>
-                
-                {% if user.profile.role == 'admin' %}
-                <div class="mt-3 text-center">
-                    <a href="{% url 'evento_list' %}" class="btn btn-outline-primary me-2">
-                        <i class="bi bi-list-ul"></i> Ver Eventos
-                    </a>
-                    <a href="{% url 'evento_create' %}" class="btn btn-primary">
-                        <i class="bi bi-plus-circle"></i> Nuevo Evento
-                    </a>
-                </div>
-                {% endif %}
-            </div>
-        </div>
+<style>
+    #external-events {
+        background: #fff;
+        padding: 10px;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        max-height: 600px;
+        overflow-y: auto;
+    }
+    .fc-event {
+        cursor: move;
+        margin: 5px 0;
+        padding: 5px;
+        border-radius: 3px;
+    }
+    .fc-event-main {
+        font-size: 0.85em;
+    }
+    .pending-portion {
+        background-color: #f8f9fa;
+        border: 1px solid #ced4da;
+        padding: 8px;
+        margin-bottom: 5px;
+        cursor: grab;
+        border-radius: 4px;
+        font-size: 0.9rem;
+    }
+    .pending-portion:hover {
+        background-color: #e9ecef;
+    }
+    .fc-day-sun {
+        background-color: #e0e0e0;
+    }
+</style>
 
-        <!-- Color Legend -->
-        <div class="card border mb-3">
-            <div class="card-body">
-                <h6 class="mb-3">Leyenda de Colores</h6>
-                <div class="row">
-                    <div class="col-md-3 col-6 mb-2">
-                        <div class="d-flex align-items-center">
-                            <span class="badge me-2" style="background-color: #EF5350;">⬤</span>
-                            <small class="text-muted">Facturación Masiva</small>
+<div class="row mb-3">
+    <div class="col-12 d-flex justify-content-end">
+        <a href="{% url 'evento_list' %}" class="btn btn-outline-primary me-2">
+            <i class="bi bi-list-ul"></i> Lista de eventos
+        </a>
+        {% if is_admin %}
+            {% if edit_mode %}
+                <a href="?mode=view" class="btn btn-secondary">
+                    <i class="bi bi-eye"></i> Salir del Modo Edición
+                </a>
+            {% else %}
+                <a href="?mode=edit" class="btn btn-primary">
+                    <i class="bi bi-pencil-square"></i> Modificar Calendario
+                </a>
+            {% endif %}
+        {% endif %}
+    </div>
+</div>
+
+<div class="row">
+    <!-- Sidebar: Pending Portions (Only in Edit Mode) -->
+    {% if edit_mode %}
+    <div class="col-md-3">
+        <div class="card mb-3">
+            <div class="card-header bg-warning text-dark">
+                <i class="bi bi-hourglass-split"></i> Pendientes <span id="current-month-label"></span>
+            </div>
+            <div class="card-body p-2">
+                <p class="small text-muted mb-2">Arrastra estas porciones al calendario para crear un evento.</p>
+                <div id="external-events-list">
+                    <!-- Loaded via JS -->
+                    <div class="text-center py-3">
+                        <div class="spinner-border spinner-border-sm text-secondary" role="status">
+                            <span class="visually-hidden">Cargando...</span>
                         </div>
                     </div>
-                    <div class="col-md-3 col-6 mb-2">
-                        <div class="d-flex align-items-center">
-                            <span class="badge me-2" style="background-color: #87CEEB;">⬤</span>
-                            <small class="text-muted">Facturación Especial</small>
-                        </div>
-                    </div>
                 </div>
             </div>
         </div>
+        
+        <!-- Legend -->
+        <div class="card">
+             <div class="card-header">
+                Leyenda
+            </div>
+            <div class="card-body">
+                <div class="d-flex align-items-center mb-2">
+                    <span class="badge me-2" style="background-color: #EF5350;">⬤</span> Masiva
+                </div>
+                <div class="d-flex align-items-center">
+                    <span class="badge me-2" style="background-color: #87CEEB;">⬤</span> Especial
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
 
-        <!-- Calendar Grid -->
-        <div class="card border">
-            <div class="card-body p-0">
-                <table class="table table-bordered mb-0">
-                    <thead>
-                        <tr class="text-center">
-                            <th class="py-3">Lun</th>
-                            <th class="py-3">Mar</th>
-                            <th class="py-3">Mié</th>
-                            <th class="py-3">Jue</th>
-                            <th class="py-3">Vie</th>
-                            <th class="py-3">Sáb</th>
-                            <th class="py-3">Dom</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for week in calendar %}
-                        <tr>
-                            {% for day in week %}
-                            <td class="align-top p-2 {% if forloop.counter == 7 %}bg-opacity-10 {% endif %}" style="height: 120px; width: 14.28%; {% if forloop.counter == 7 %}background-color: rgba(108, 117, 125, 0.1);{% endif %}">
-                                {% if day != 0 %}
-                                    <div class="d-flex justify-content-between align-items-start mb-1">
-                                        <span class="badge {% if day == today.day and mes == today.month and anio == today.year %}bg-primary{% else %}bg-secondary{% endif %}">
-                                            {{ day }}
-                                        </span>
-                                    </div>
-                                    
-                                    <!-- Events for this day -->
-                                    {% if day in eventos_por_dia %}
-                                        <div class="d-flex flex-column gap-1">
-                                            {% for evento in eventos_por_dia|get_item:day %}
-                                                <a href="{% url 'equipo_list' %}?porcion={{ evento.porcion_id }}" class="text-decoration-none d-block">
-                                                    <div class="badge text-white text-truncate w-100" 
-                                                         style="background-color: {{ evento.color }}; font-size: 0.85rem;"
-                                                         title="{{ evento.nombre }}">
-                                                        {{ evento.porcion }}
-                                                        <span style="font-size: 0.75rem; font-weight: normal; opacity: 0.9; margin-left: 2px;">
-                                                            ({{ evento.medidores_count }} <i class="bi bi-speedometer2" style="font-size: 0.75rem;"></i>)
-                                                        </span>
-                                                    </div>
-                                                </a>
-                                            {% endfor %}
-                                        </div>
-                                    {% endif %}
-                                {% endif %}
-                            </td>
-                            {% endfor %}
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
+    <!-- Calendar Area -->
+    <div class="col-md-{% if edit_mode %}9{% else %}12{% endif %}">
+        <div class="card">
+            <div class="card-body p-2">
+                <div id='calendar'></div>
             </div>
         </div>
     </div>
 </div>
 
+<!-- FullCalendar CDN -->
+<script src='https://cdn.jsdelivr.net/npm/fullcalendar@6.1.10/index.global.min.js'></script>
+<script src='https://cdn.jsdelivr.net/npm/@fullcalendar/core@6.1.10/locales/es.global.min.js'></script>
+
 <script>
-// Initialize tooltips
 document.addEventListener('DOMContentLoaded', function() {
-    var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
-    var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
-        return new bootstrap.Tooltip(tooltipTriggerEl);
+    var calendarEl = document.getElementById('calendar');
+    var containerEl = document.getElementById('external-events-list'); // May be null if not edit mode
+    var initialDate = "{{ initial_date }}"; // e.g., '2023-10-01'
+    var isEditMode = {{ edit_mode|yesno:"true,false" }};
+
+    // Initialize Draggable for the sidebar only if container exists
+    if (containerEl) {
+        new FullCalendar.Draggable(containerEl, {
+            itemSelector: '.pending-portion',
+            eventData: function(eventEl) {
+                return {
+                    title: eventEl.innerText.trim(),
+                    backgroundColor: eventEl.dataset.color,
+                    borderColor: eventEl.dataset.color,
+                    extendedProps: {
+                        porcion_id: eventEl.dataset.id
+                    }
+                };
+            }
+        });
+    }
+
+    var calendar = new FullCalendar.Calendar(calendarEl, {
+        initialDate: initialDate,
+        initialView: 'dayGridMonth',
+        locale: 'es', // Set Spanish locale
+        headerToolbar: {
+            left: 'prev,next today',
+            center: 'title',
+            right: 'dayGridMonth,listMonth'
+        },
+        editable: isEditMode,
+        droppable: isEditMode, // this allows things to be dropped onto the calendar
+        events: '{% url "api_get_events" %}', // Fetch events from API
+        
+        // Receive external drop (Create Event)
+        eventReceive: function(info) {
+            if (!isEditMode) return;
+            
+            var event = info.event;
+            var date = event.startStr; // ISO string
+            var porcion_id = event.extendedProps.porcion_id;
+            
+            // Call API to create event
+            fetch('{% url "api_save_event" %}', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': '{{ csrf_token }}'
+                },
+                body: JSON.stringify({
+                    porcion_id: porcion_id,
+                    date: date
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if(data.error) {
+                    alert('Error: ' + data.error);
+                    event.remove(); // Revert
+                } else {
+                    event.setProp('id', data.id); // Set the real ID
+                    refreshPendingPortions(calendar.getDate()); // Update sidebar
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                event.remove();
+                alert('Ocurrió un error al guardar el evento.');
+            });
+        },
+
+        // Move event (Update Date)
+        eventDrop: function(info) {
+            if (!isEditMode) {
+                info.revert();
+                return;
+            }
+
+            var event = info.event;
+            var newDate = event.startStr;
+            
+            fetch('{% url "api_update_event" %}', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': '{{ csrf_token }}'
+                },
+                body: JSON.stringify({
+                    event_id: event.id,
+                    date: newDate
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if(data.error) {
+                    alert('Error: ' + data.error);
+                    info.revert();
+                } else {
+                     // Check if month changed significantly to refresh pending list?
+                     // Usually just keep it compatible.
+                     refreshPendingPortions(calendar.getDate());
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                info.revert();
+                alert('Error al actualizar el evento.');
+            });
+        },
+        
+        // Handle clicking an event (Maybe redirect to logs or show details?)
+        eventClick: function(info) {
+            if (!isEditMode) return; // Do nothing in read-only mode, or show details?
+
+            if (confirm("¿Deseas eliminar este evento de facturación? Volverá a la lista de pendientes.")) {
+                 fetch('{% url "api_delete_event" %}', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': '{{ csrf_token }}'
+                    },
+                    body: JSON.stringify({
+                        event_id: info.event.id
+                    })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if(data.status === 'success') {
+                        info.event.remove();
+                        refreshPendingPortions(calendar.getDate());
+                    } else {
+                        alert('Error al eliminar: ' + data.error);
+                    }
+                });
+            }
+        },
+
+        datesSet: function(info) {
+            // Called when the view changes (e.g. month change)
+            refreshPendingPortions(info.view.currentStart);
+        }
     });
+
+    calendar.render();
+
+    function refreshPendingPortions(dateObj) {
+        if (!containerEl) return; // Exit if sidebar doesn't exist
+
+        // format date as YYYY-MM-DD
+        var dateStr = dateObj.toISOString().split('T')[0];
+        
+        fetch('{% url "api_get_pending_portions" %}?date=' + dateStr)
+        .then(response => response.json())
+        .then(data => {
+            containerEl.innerHTML = '';
+            if (data.length === 0) {
+                containerEl.innerHTML = '<div class="text-muted text-center small">No hay pendientes para este mes</div>';
+                return;
+            }
+            
+            data.forEach(item => {
+                var div = document.createElement('div');
+                div.className = 'pending-portion fc-event';
+                div.dataset.id = item.id;
+                div.dataset.color = item.color; // store color for drag
+                
+                // Content
+                div.innerHTML = `
+                    <div class="d-flex justify-content-between align-items-center">
+                        <strong>${item.title}</strong>
+                        <span class="badge bg-secondary rounded-pill">${item.medidores_count}</span>
+                    </div>
+                    <div class="small text-muted" style="font-size: 0.75rem;">${item.tipo}</div>
+                `;
+                
+                containerEl.appendChild(div);
+            });
+        });
+    }
+
 });
 </script>
 {% endblock %}

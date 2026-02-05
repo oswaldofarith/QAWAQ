@@ -182,7 +182,7 @@
         ],
         chart: {
             height: 350,
-            type: 'area',
+            type: 'line', // Changed to line for better visibility with dual axis
             toolbar: { show: false },
             fontFamily: 'Inter, sans-serif',
             background: 'transparent',
@@ -195,15 +195,6 @@
             style: { color: '#8e95a3', fontSize: '16px' }
         },
         colors: ['#0ea5e9', '#f59e0b'], // Blue for Fiber, Orange for Cellular
-        fill: {
-            type: 'gradient',
-            gradient: {
-                shadeIntensity: 1,
-                opacityFrom: 0.4,
-                opacityTo: 0.05,
-                stops: [0, 90, 100]
-            }
-        },
         dataLabels: { enabled: false },
         stroke: {
             curve: 'smooth',
@@ -219,20 +210,44 @@
             axisTicks: { show: false },
             tooltip: { enabled: false }
         },
-        yaxis: {
-            labels: { style: { colors: '#8e95a3' } },
-            title: {
-                 text: 'Milisegundos (ms)',
-                 style: { color: '#8e95a3' }
+        yaxis: [
+            {
+                axisTicks: { show: true },
+                axisBorder: { show: true, color: '#0ea5e9' },
+                labels: { style: { colors: '#0ea5e9' } },
+                title: {
+                    text: 'Fibra (ms)',
+                    style: { color: '#0ea5e9' }
+                }
+            },
+            {
+                opposite: true,
+                axisTicks: { show: true },
+                axisBorder: { show: true, color: '#f59e0b' },
+                labels: { style: { colors: '#f59e0b' } },
+                title: {
+                    text: 'Celular (ms)',
+                    style: { color: '#f59e0b' }
+                }
             }
-        },
+        ],
         grid: {
             borderColor: '#374151',
             strokeDashArray: 4,
         },
         theme: { mode: 'dark' },
         tooltip: {
-            theme: 'dark'
+            theme: 'dark',
+            shared: true,
+            intersect: false,
+            y: {
+                formatter: function (y) {
+                    if (typeof y !== "undefined") {
+                        return y.toFixed(1) + " ms";
+                    }
+                    return y;
+                }
+            }
         },
         legend: {
             position: 'top',

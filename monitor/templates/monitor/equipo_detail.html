@@ -1,5 +1,6 @@
 {% extends 'base.html' %}
 {% load monitor_extras %}
+{% load l10n %}
 
 {% block header_title %}{{ equipo.id_equipo }}{% endblock %}
 {% block header_subtitle %}{{ equipo.tipo }} {{ equipo.marca }} • Última actualización: {{ equipo.last_seen|human_time }}{% endblock %}
@@ -160,7 +161,7 @@
                     </div>
                     {% if equipo.latitud and equipo.longitud %}
                     <button class="btn btn-link text-secondary p-0 ms-1"
-                        onclick="navigator.clipboard.writeText('{{ equipo.latitud }}, {{ equipo.longitud }}'); this.innerHTML='<i class=\'bi bi-check-lg text-success\'></i>'; setTimeout(() => this.innerHTML='<i class=\'bi bi-clipboard\'></i>', 2000)"
+                        onclick="navigator.clipboard.writeText('{{ equipo.latitud|unlocalize }}, {{ equipo.longitud|unlocalize }}'); this.innerHTML='<i class=\'bi bi-check-lg text-success\'></i>'; setTimeout(() => this.innerHTML='<i class=\'bi bi-clipboard\'></i>', 2000)"
                         title="Copiar coordenadas">
                         <i class="bi bi-clipboard"></i>
                     </button>
@@ -168,7 +169,7 @@
                 </div>
                 
                 {% if equipo.latitud and equipo.longitud %}
-                <a href="https://www.google.com/maps/search/?api=1&query={{ equipo.latitud }},{{ equipo.longitud }}&z=13" 
+                <a href="https://www.google.com/maps/search/?api=1&query={{ equipo.latitud|unlocalize }},{{ equipo.longitud|unlocalize }}&z=13" 
                    target="_blank" 
                    class="btn btn-outline-light border-0"
                    title="Abrir en Google Maps">

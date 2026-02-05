@@ -11,7 +11,8 @@ import datetime
 from ..models import Porcion, EventoFacturacion, Medidor, Equipo, HistorialDisponibilidad
 # from ..models import CicloFacturacion # It was imported in source but maybe not used or used in future? Keep it if needed.
 from ..forms import PorcionForm, EventoFacturacionForm
-from ..decorators import login_required_method, admin_required_method
+from ..decorators import login_required_method, admin_required_method, admin_required
+from django.contrib.auth.decorators import login_required
 
 @login_required_method
 class CalendarioView(TemplateView):
@@ -20,73 +21,203 @@ class CalendarioView(TemplateView):
     
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        
-        # Get year and month from URL or use current
-        anio = self.kwargs.get('anio') or date.today().year
-        mes = self.kwargs.get('mes') or date.today().month
-        
-        # Ensure valid month
-        mes = max(1, min(12, mes))
-        
-        context['anio'] = anio
-        context['mes'] = mes
-        
-        # Month names in Spanish
-        meses_es = {
-            1: 'Enero', 2: 'Febrero', 3: 'Marzo', 4: 'Abril',
-            5: 'Mayo', 6: 'Junio', 7: 'Julio', 8: 'Agosto',
-            9: 'Septiembre', 10: 'Octubre', 11: 'Noviembre', 12: 'Diciembre'
-        }
-        context['mes_nombre'] = meses_es[mes]
-        
-        # Calculate previous/next month
-        if mes == 1:
-            context['prev_mes'] = 12
-            context['prev_anio'] = anio - 1
+        context['today'] = date.today()
+        # We pass initial date if provided in URL, for JS to init calendar
+        anio = self.kwargs.get('anio')
+        mes = self.kwargs.get('mes')
+        if anio and mes:
+            context['initial_date'] = f"{anio}-{mes:02d}-01"
         else:
-            context['prev_mes'] = mes - 1
-            context['prev_anio'] = anio
+            context['initial_date'] = date.today().strftime('%Y-%m-%d')
             
-        if mes == 12:
-            context['next_mes'] = 1
-            context['next_anio'] = anio + 1
-        else:
-            context['next_mes'] = mes + 1
-            context['next_anio'] = anio
+        # Determine Edit Mode
+        # Only admins can edit, and only if ?mode=edit is present
+        is_admin = False
+        if hasattr(self.request.user, 'profile') and self.request.user.profile.role == 'admin':
+            is_admin = True
+            
+        edit_mode = False
+        if is_admin and self.request.GET.get('mode') == 'edit':
+             edit_mode = True
+             
+        context['is_admin'] = is_admin
+        context['edit_mode'] = edit_mode
+            
+        return context
+
+
+# ==================== API ENDPOINTS FOR CALENDAR ====================
+
+import json
+from django.http import JsonResponse
+from django.views.decorators.http import require_POST, require_GET
+from django.views.decorators.csrf import csrf_exempt
+
+@login_required
+@require_GET
+def api_get_events(request):
+    """Return events for FullCalendar."""
+    start_str = request.GET.get('start')
+    end_str = request.GET.get('end')
+    
+    # FullCalendar sends ISO8601 strings
+    start = start_str[:10] if start_str else None
+    end = end_str[:10] if end_str else None
+    
+    query = EventoFacturacion.objects.filter(tipo_evento='FACTURACION')
+    if start:
+        query = query.filter(fecha__gte=start)
+    if end:
+        query = query.filter(fecha__lte=end)
         
-        # Get calendar data
-        cal = calendar.monthcalendar(anio, mes)
-        context['calendar'] = cal
+    events = []
+    for event in query.select_related('porcion', 'ciclo').annotate(medidores_count=Count('porcion__medidores')):
+        events.append({
+            'id': event.id,
+            'title': f"{event.porcion.nombre} ({event.medidores_count})",
+            'start': event.fecha.isoformat(),
+            'backgroundColor': event.get_color(),
+            'borderColor': event.get_color(),
+            'extendedProps': {
+                'porcion_id': event.porcion.id,
+                'tipo': event.tipo_evento,
+                'medidores_count': event.medidores_count
+            }
+        })
+    
+    return JsonResponse(events, safe=False)
+
+@login_required
+@require_GET
+def api_get_pending_portions(request):
+    """Return portions that do NOT have an event in the specified month."""
+    import datetime
+    
+    ref_date_str = request.GET.get('date')
+    if ref_date_str:
+        try:
+            ref_date = datetime.datetime.strptime(ref_date_str[:10], '%Y-%m-%d').date()
+        except ValueError:
+            ref_date = date.today()
+    else:
+        ref_date = date.today()
         
-        # Get all events for this month with portion meter counts
-        eventos = EventoFacturacion.objects.filter(
-            fecha__year=anio,
-            fecha__month=mes,
-            tipo_evento='FACTURACION'
-        ).select_related('porcion', 'ciclo').annotate(
-            medidores_count=Count('porcion__medidores')
+    year = ref_date.year
+    month = ref_date.month
+    
+    # Get IDs of portions that HAVE an event in this month
+    portions_with_events = EventoFacturacion.objects.filter(
+        fecha__year=year,
+        fecha__month=month,
+        tipo_evento='FACTURACION'
+    ).values_list('porcion_id', flat=True)
+    
+    # Get all portions excluding those
+    pending = Porcion.objects.filter(
+        # We might want to filter by active status if that existed, but for now all portions
+    ).exclude(id__in=portions_with_events).annotate(
+        medidores_count=Count('medidores')
+    ).values('id', 'nombre', 'tipo', 'medidores_count').order_by('nombre')
+    
+    data = []
+    for p in pending:
+        data.append({
+            'id': p['id'],
+            'title': p['nombre'],
+            'medidores_count': p['medidores_count'],
+            'tipo': p['tipo'],
+            'color': '#EF5350' if p['tipo'] == 'MASIVO' else '#87CEEB'
+        })
+        
+    return JsonResponse(data, safe=False)
+
+@admin_required
+@require_POST
+def api_save_event(request):
+    """Create a new event (when dropped from sidebar)."""
+    try:
+        data = json.loads(request.body)
+        porcion_id = data.get('porcion_id')
+        date_str = data.get('date')
+        
+        if not porcion_id or not date_str:
+            return JsonResponse({'error': 'Missing parameters'}, status=400)
+            
+        fecha = datetime.datetime.strptime(date_str[:10], '%Y-%m-%d').date()
+        
+        porcion = Porcion.objects.get(pk=porcion_id)
+        
+        # Check if Cycle exists matches month/year and type
+        ciclo, created = CicloFacturacion.objects.get_or_create(
+            mes=fecha.month,
+            anio=fecha.year,
+            tipo=porcion.tipo
         )
         
-        # Group events by day
-        eventos_por_dia = {}
-        for evento in eventos:
-            dia = evento.fecha.day
-            if dia not in eventos_por_dia:
-                eventos_por_dia[dia] = []
-            eventos_por_dia[dia].append({
-                'id': evento.id,
-                'nombre': evento.get_display_name(),
-                'color': evento.get_color(),
-                'tipo': evento.tipo_evento,
-                'porcion': evento.porcion.nombre,
-                'porcion_id': evento.porcion.id,
-                'medidores_count': evento.medidores_count
-            })
+        if EventoFacturacion.objects.filter(ciclo=ciclo, porcion=porcion, tipo_evento='FACTURACION').exists():
+             return JsonResponse({'error': 'Evento ya existe para este ciclo'}, status=400)
+
+        evento = EventoFacturacion.objects.create(
+            ciclo=ciclo,
+            porcion=porcion,
+            fecha=fecha,
+            tipo_evento='FACTURACION'
+        )
         
-        context['eventos_por_dia'] = eventos_por_dia
-        context['today'] = date.today()
+        return JsonResponse({
+            'id': evento.id,
+            'message': 'Evento creado'
+        })
         
-        return context
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)
+
+@admin_required
+@require_POST
+def api_update_event(request):
+    """Update event date (when moved in calendar)."""
+    try:
+        data = json.loads(request.body)
+        event_id = data.get('event_id')
+        new_date_str = data.get('date')
+        
+        if not event_id or not new_date_str:
+            return JsonResponse({'error': 'Missing parameters'}, status=400)
+            
+        evento = EventoFacturacion.objects.get(pk=event_id)
+        new_date = datetime.datetime.strptime(new_date_str[:10], '%Y-%m-%d').date()
+        
+        # Check for month/year change to update cycle
+        if evento.fecha.month != new_date.month or evento.fecha.year != new_date.year:
+            ciclo, created = CicloFacturacion.objects.get_or_create(
+                mes=new_date.month,
+                anio=new_date.year,
+                tipo=evento.porcion.tipo
+            )
+            evento.ciclo = ciclo
+            
+        evento.fecha = new_date
+        evento.save()
+        
+        return JsonResponse({'status': 'success'})
+        
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)
+
+@admin_required
+@require_POST
+def api_delete_event(request):
+    """Delete event."""
+    try:
+        data = json.loads(request.body)
+        event_id = data.get('event_id')
+        
+        evento = EventoFacturacion.objects.get(pk=event_id)
+        evento.delete()
+        
+        return JsonResponse({'status': 'success'})
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)
 
 
 @login_required_method

@@ -73,6 +73,14 @@ urlpatterns = [
     # Billing Calendar
     path('calendario/', views.CalendarioView.as_view(), name='calendario'),
     path('calendario/<int:anio>/<int:mes>/', views.CalendarioView.as_view(), name='calendario_mes'),
+    
+    # API Endpoints
+    path('api/events/', views.api_get_events, name='api_get_events'),
+    path('api/events/pending/', views.api_get_pending_portions, name='api_get_pending_portions'),
+    path('api/events/save/', views.api_save_event, name='api_save_event'),
+    path('api/events/update/', views.api_update_event, name='api_update_event'),
+    path('api/events/delete/', views.api_delete_event, name='api_delete_event'),
+
     path('eventos/', views.EventoListView.as_view(), name='evento_list'),
     path('eventos/nuevo/', views.EventoCreateView.as_view(), name='evento_create'),
     path('eventos/<int:pk>/editar/', views.EventoUpdateView.as_view(), name='evento_update'),
