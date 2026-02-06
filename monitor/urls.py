@@ -97,4 +97,5 @@ urlpatterns = [
     path('medidores/exportar/', views.ExportMedidoresView.as_view(), name='export_medidores'),
     path('medidores/importar/', views.ImportMedidoresView.as_view(), name='import_medidores'),
     path('medidores/importar-colectores/', views.ImportColectoresView.as_view(), name='import_colectores'),
+    path('medidores/importar-colectores/rechazados/', views.ExportRejectedAssociationsView.as_view(), name='export_rejected_associations'),
 ]

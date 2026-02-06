@@ -40,6 +40,9 @@
     .fc-day-sun {
         background-color: #e0e0e0;
     }
+    [data-bs-theme="dark"] .fc-day-sun {
+        background-color: #2d3238; /* Dark gray for dark mode */
+    }
 </style>
 
 <div class="row mb-3">
@@ -228,7 +231,12 @@ document.addEventListener('DOMContentLoaded', function() {
         
         // Handle clicking an event (Maybe redirect to logs or show details?)
         eventClick: function(info) {
-            if (!isEditMode) return; // Do nothing in read-only mode, or show details?
+            if (!isEditMode) {
+                // Navigate to Equipment List filtered by this portion
+                var porcion_id = info.event.extendedProps.porcion_id;
+                window.location.href = "{% url 'equipo_list' %}?porcion=" + porcion_id;
+                return;
+            }
 
             if (confirm("¿Deseas eliminar este evento de facturación? Volverá a la lista de pendientes.")) {
                  fetch('{% url "api_delete_event" %}', {

@@ -1,5 +1,6 @@
 {% extends 'base.html' %}
 {% load monitor_extras %}
+{% load l10n %}
 
 {% block header_title %}Reportes de Facturación{% endblock %}
 {% block header_subtitle %}Supervisión de equipos críticos por fecha de facturación.{% endblock %}
@@ -101,35 +102,35 @@
             <tbody>
                 {% for eq in data.equipments %}
                 <tr>
-                    <td class="ps-4 font-monospace text-white small" style="vertical-align: middle;">
+                    <td class="ps-4 font-monospace text-white small" style="vertical-align: middle;" data-value="{{ eq.id_equipo }}">
                         <a href="{% url 'equipo_detail' eq.id %}" class="text-decoration-none text-white hover-primary">
                             {{ eq.id_equipo }}
                         </a>
                         <div class="small text-muted" style="font-size: 0.7rem;">{{ eq.ip }}</div>
                     </td>
-                    <td class="text-center" style="vertical-align: middle;">
+                    <td class="text-center" style="vertical-align: middle;" data-value="{% if eq.is_online %}1{% else %}0{% endif %}">
                         {% if eq.is_online %}
                         <span class="badge bg-success bg-opacity-25 text-success border border-success border-opacity-25 rounded-pill px-2">ONLINE</span>
                         {% else %}
                         <span class="badge bg-danger bg-opacity-25 text-danger border border-danger border-opacity-25 rounded-pill px-2">OFFLINE</span>
                         {% endif %}
                     </td>
-                    <td class="small text-secondary" style="vertical-align: middle;">
+                    <td class="small text-secondary" style="vertical-align: middle;" data-value="{{ eq.last_seen|date:'YmdHis'|default:'0' }}">
                         {{ eq.last_seen|default:"-"|date:"d/m H:i" }}
                     </td>
-                    <td class="small text-secondary" style="vertical-align: middle;">
+                    <td class="small text-secondary" style="vertical-align: middle;" data-value="{{ eq.last_failure_time|date:'YmdHis'|default:'0' }}">
                         {% if eq.last_failure_time %}
                         <span class="text-danger">{{ eq.last_failure_time|date:"d/m H:i" }}</span>
                         {% else %}
                         -
                         {% endif %}
                     </td>
-                    <td class="text-end fw-bold text-white pe-4" style="vertical-align: middle;">
+                    <td class="text-end fw-bold text-white pe-4" style="vertical-align: middle;" data-value="{{ eq.total_medidores|unlocalize }}">
                         {{ eq.total_medidores }}
                     </td>
                     <!-- Dynamic Brand Counts -->
                     {% for count in eq.brand_counts_list %}
-                    <td class="text-end text-secondary small pe-4" style="vertical-align: middle;">
+                    <td class="text-end text-secondary small pe-4" style="vertical-align: middle;" data-value="{{ count|unlocalize }}">
                         {% if count > 0 %}{{ count }}{% else %}-{% endif %}
                     </td>
                     {% endfor %}
@@ -152,5 +153,34 @@
     <p class="text-secondary text-center">Para este mes no se encontraron eventos de tipo "Facturación".</p>
 </div>
 {% endfor %}
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const getCellValue = (tr, idx) => {
+        const cell = tr.children[idx];
+        return cell.getAttribute('data-value') || cell.innerText || cell.textContent;
+    };
+
+    const comparer = (idx, asc) => (a, b) => ((v1, v2) => 
+        v1 !== '' && v2 !== '' && !isNaN(v1) && !isNaN(v2) ? v1 - v2 : v1.toString().localeCompare(v2)
+    )(getCellValue(asc ? a : b, idx), getCellValue(asc ? b : a, idx));
+
+    document.querySelectorAll('th').forEach(th => th.style.cursor = 'pointer');
+
+    document.querySelectorAll('th').forEach(th => th.addEventListener('click', (() => {
+        const table = th.closest('table');
+        const tbody = table.querySelector('tbody');
+        Array.from(tbody.querySelectorAll('tr'))
+            .sort(comparer(Array.from(th.parentNode.children).indexOf(th), this.asc = !this.asc))
+            .forEach(tr => tbody.appendChild(tr));
+            
+        // Toggle indicators
+        table.querySelectorAll('th i').forEach(i => i.remove());
+        const icon = document.createElement('i');
+        icon.className = this.asc ? 'bi bi-caret-up-fill ms-1 small' : 'bi bi-caret-down-fill ms-1 small';
+        th.appendChild(icon);
+    })));
+});
+</script>
 
 {% endblock %}

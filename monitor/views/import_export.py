@@ -916,6 +916,10 @@ class ImportColectoresView(View):
             # Import associations
             stats = self._import_associations(data)
             
+            # Store rejected details in session for export
+            if stats['rejected_details']:
+                request.session['rejected_associations'] = stats['rejected_details']
+            
             return render(request, 'monitor/import_colectores_summary.html', {
                 'stats': stats
             })
@@ -937,6 +941,7 @@ class ImportColectoresView(View):
             - rejected_no_medidor: Medidor doesn't exist
             - rejected_no_colector: Colector doesn't exist
             - rejected_total: Total rejected
+            - rejected_details: List of dicts with rejection details
             - sin_colector: Medidores without association
             - total_processed: Total rows processed
         """
@@ -944,23 +949,32 @@ class ImportColectoresView(View):
         updated = 0
         rejected_no_medidor = 0
         rejected_no_colector = 0
+        rejected_details = []
         
         for _, row in data.iterrows():
             colector_id = row['colector_id']
             medidor_numero = row['medidor_numero']
             
             # Check if medidor exists
-            try:
-                medidor = Medidor.objects.get(numero=medidor_numero)
-            except Medidor.DoesNotExist:
+            medidor = Medidor.objects.filter(numero=medidor_numero).first()
+            if not medidor:
                 rejected_no_medidor += 1
+                rejected_details.append({
+                    'medidor': medidor_numero,
+                    'colector': colector_id,
+                    'motivo': 'Medidor no existe en QAWAQ'
+                })
                 continue
             
-            # Check if colector exists
-            try:
-                colector = Equipo.objects.get(id_equipo=colector_id)
-            except Equipo.DoesNotExist:
+            # Check if colector exists (case insensitive match for safety, though ID usually specific)
+            colector = Equipo.objects.filter(id_equipo=colector_id).first()
+            if not colector:
                 rejected_no_colector += 1
+                rejected_details.append({
+                    'medidor': medidor_numero,
+                    'colector': colector_id,
+                    'motivo': 'Colector no existe en QAWAQ'
+                })
                 continue
             
             # Check if association needs to be created or updated
@@ -988,6 +1002,66 @@ class ImportColectoresView(View):
             'rejected_no_medidor': rejected_no_medidor,
             'rejected_no_colector': rejected_no_colector,
             'rejected_total': rejected_total,
+            'rejected_details': rejected_details,
             'sin_colector': sin_colector,
             'total_processed': total_processed,
         }
+
+
+@admin_required_method
+class ExportRejectedAssociationsView(View):
+    """View to download rejected associations as XLSX."""
+    
+    def get(self, request):
+        from openpyxl import Workbook
+        from openpyxl.styles import Font, PatternFill, Alignment
+        from django.http import HttpResponse
+        import io
+        
+        rejected_list = request.session.get('rejected_associations', [])
+        
+        if not rejected_list:
+            messages.warning(request, 'No hay registros rechazados para exportar o la sesión ha expirado.')
+            return redirect('import_colectores')
+            
+        # Create workbook
+        wb = Workbook()
+        ws = wb.active
+        ws.title = "Rechazados"
+        
+        # Headers
+        headers = ['Medidor', 'Colector Intentado', 'Motivo de Rechazo']
+        
+        # Style headers
+        header_fill = PatternFill(start_color="EF5350", end_color="EF5350", fill_type="solid") # Red for error
+        header_font = Font(bold=True, color="FFFFFF")
+        
+        for col_num, header in enumerate(headers, 1):
+            cell = ws.cell(row=1, column=col_num, value=header)
+            cell.fill = header_fill
+            cell.font = header_font
+            cell.alignment = Alignment(horizontal='center')
+            
+        # Fill data
+        for row_num, item in enumerate(rejected_list, 2):
+            ws.cell(row=row_num, column=1, value=item.get('medidor', ''))
+            ws.cell(row=row_num, column=2, value=item.get('colector', ''))
+            ws.cell(row=row_num, column=3, value=item.get('motivo', ''))
+            
+        # Adjust column widths
+        ws.column_dimensions['A'].width = 20
+        ws.column_dimensions['B'].width = 20
+        ws.column_dimensions['C'].width = 60
+        
+        # Save to response
+        output = io.BytesIO()
+        wb.save(output)
+        output.seek(0)
+        
+        response = HttpResponse(
+            output.getvalue(),
+            content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        )
+        response['Content-Disposition'] = 'attachment; filename="asociaciones_rechazadas.xlsx"'
+        
+        return response
