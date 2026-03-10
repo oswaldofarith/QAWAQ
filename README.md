@@ -4,7 +4,7 @@ Sistema de monitoreo y gestión de equipos de red para infraestructura AMI (Adva
 
 ## 🎯 Descripción
 
-QAWAQ es una aplicación web para monitorear equipos de red (routers, switches, colectores) en tiempo real, gestionar medidores asociados, y generar reportes de disponibilidad y facturación.
+QAWAQ es una aplicación web para monitorear equipos de red AMI en tiempo real, gestionar medidores asociados, y generar reportes de disponibilidad y facturación.
 
 ### Características Principales
 
