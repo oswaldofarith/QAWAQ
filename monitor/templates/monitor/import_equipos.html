@@ -33,8 +33,7 @@
             <div class="alert alert-warning mb-4">
                 <h6 class="alert-heading mb-3">
                     <i class="bi bi-exclamation-triangle-fill me-2"></i>
-                    Se encontraron {{ duplicate_count }} equipo{{ duplicate_count|pluralize }} duplicado{{
-                    duplicate_count|pluralize }}
+                    Se encontraron {{ duplicate_count }} equipo{{ duplicate_count|pluralize }} duplicado{{ duplicate_count|pluralize }}
                 </h6>
                 <p class="mb-0">Se encontraron equipos con IDs que ya existen en el sistema. ¿Cómo desea proceder?</p>
             </div>
@@ -239,12 +238,10 @@
             <div class="alert alert-success">
                 <i class="bi bi-check-circle-fill me-2"></i>
                 {% if created_count > 0 %}
-                <strong>{{ created_count }}</strong> equipo{{ created_count|pluralize }} creado{{
-                created_count|pluralize }}{% if updated_count > 0 %}, {% endif %}
+                <strong>{{ created_count }}</strong> equipo{{ created_count|pluralize }} creado{{created_count|pluralize }}{% if updated_count > 0 %}, {% endif %}
                 {% endif %}
                 {% if updated_count > 0 %}
-                <strong>{{ updated_count }}</strong> equipo{{ updated_count|pluralize }} actualizado{{
-                updated_count|pluralize }}
+                <strong>{{ updated_count }}</strong> equipo{{ updated_count|pluralize }} actualizado{{updated_count|pluralize }}
                 {% endif %}
                 exitosamente.
             </div>
@@ -254,8 +251,7 @@
             {% if skipped_count > 0 %}
             <div class="alert alert-info">
                 <i class="bi bi-info-circle-fill me-2"></i>
-                <strong>{{ skipped_count }}</strong> equipo{{ skipped_count|pluralize }} duplicado{{
-                skipped_count|pluralize }} omitido{{ skipped_count|pluralize }}.
+                <strong>{{ skipped_count }}</strong> equipo{{ skipped_count|pluralize }} duplicado{{skipped_count|pluralize }} omitido{{ skipped_count|pluralize }}.
             </div>
             {% endif %}
 

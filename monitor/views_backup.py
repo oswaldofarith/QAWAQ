@@ -32,7 +32,8 @@ class DashboardView(TemplateView):
         # We need: Brand Name, Total Count, Down Count, Status Color (implicit)
         top_brands = Equipo.objects.values('marca__nombre', 'marca__color').annotate(
             total=Count('id'),
-            down=Count('id', filter=Q(is_online=False))
+            down=Count('id', filter=Q(is_online=False, estado='ACTIVO')),
+            maintenance=Count('id', filter=Q(estado='EN_MANTENIMIENTO'))
         ).order_by('-total')[:4]
         
         context['brand_stats'] = top_brands
@@ -201,7 +202,9 @@ class DashboardView(TemplateView):
             
         context['offline_list'] = offline_devices[:10] # Top 10
         context['total_monitored'] = Equipo.objects.count()
-        context['total_down'] = len(raw_offline)
+        context['total_down'] = Equipo.objects.filter(is_online=False, estado='ACTIVO').count()
+        context['total_online'] = Equipo.objects.filter(is_online=True, estado='ACTIVO').count()
+        context['total_maintenance'] = Equipo.objects.filter(estado='EN_MANTENIMIENTO').count()
         
         # Billing events for today and tomorrow
         from datetime import date, timedelta
@@ -2047,11 +2050,13 @@ class CalendarioView(TemplateView):
         cal = calendar.monthcalendar(anio, mes)
         context['calendar'] = cal
         
-        # Get all events for this month
+        # Get all events for this month with portion meter counts
         eventos = EventoFacturacion.objects.filter(
             fecha__year=anio,
             fecha__month=mes
-        ).select_related('porcion', 'ciclo')
+        ).select_related('porcion', 'ciclo').annotate(
+            medidores_count=Count('porcion__medidores')
+        )
         
         # Group events by day
         eventos_por_dia = {}
@@ -2065,7 +2070,8 @@ class CalendarioView(TemplateView):
                 'color': evento.get_color(),
                 'tipo': evento.tipo_evento,
                 'porcion': evento.porcion.nombre,
-                'porcion_id': evento.porcion.id
+                'porcion_id': evento.porcion.id,
+                'medidores_count': evento.medidores_count
             })
         
         context['eventos_por_dia'] = eventos_por_dia
@@ -2914,9 +2920,11 @@ class MapaView(TemplateView):
         
         if estado_filter:
             if estado_filter == 'ONLINE':
-                equipos = equipos.filter(is_online=True)
+                equipos = equipos.filter(is_online=True, estado='ACTIVO')
             elif estado_filter == 'OFFLINE':
-                equipos = equipos.filter(is_online=False)
+                equipos = equipos.filter(is_online=False, estado='ACTIVO')
+            elif estado_filter == 'MANTENIMIENTO':
+                equipos = equipos.filter(estado='EN_MANTENIMIENTO')
 
         if porcion_filter:
             equipos = equipos.filter(medidores_asociados__porcion_id=porcion_filter).distinct()
@@ -2924,9 +2932,16 @@ class MapaView(TemplateView):
         # Serialize equipos to JSON
         equipos_data = []
         for equipo in equipos:
-            # Determine marker color based on is_online status
-            color = 'green' if equipo.is_online else 'red'
-            estado_text = 'Online' if equipo.is_online else 'Offline'
+            # Determine marker color logic: Maintenance (Yellow) > Offline (Red) > Online (Green)
+            if equipo.estado == 'EN_MANTENIMIENTO':
+                color = '#ffc107'
+                estado_text = 'Mantenimiento'
+            elif not equipo.is_online:
+                color = 'red'
+                estado_text = 'Offline'
+            else:
+                color = 'green'
+                estado_text = 'Online'
             
             equipos_data.append({
                 'id': equipo.id,
@@ -3056,3 +3071,32 @@ class ReporteFacturacionView(TemplateView):
             
         context['report_data'] = report_data
         return context
+
+@admin_required_method
+class ToggleMaintenanceView(View):
+    """Toggle maintenance status for an equipment."""
+    
+    def post(self, request, pk):
+        from .models import Equipo
+        equipo = get_object_or_404(Equipo, pk=pk)
+        
+        # Toggle boolean
+        equipo.en_mantenimiento = not equipo.en_mantenimiento
+        
+        # Sync with estado field if appropriate
+        if equipo.en_mantenimiento:
+            if equipo.estado == 'ACTIVO':
+                equipo.estado = 'EN_MANTENIMIENTO'
+        else:
+            if equipo.estado == 'EN_MANTENIMIENTO':
+                equipo.estado = 'ACTIVO'
+        
+        equipo.save()
+        
+        # If HTMX, return just the row
+        if request.headers.get('HX-Request') or getattr(request, 'htmx', False):
+            return render(request, 'monitor/partials/equipo_list_rows.html', {'equipos': [equipo]})
+        
+        from django.contrib import messages
+        messages.success(request, f'Estado de mantenimiento de "{equipo.id_equipo}" actualizado.')
+        return redirect('equipo_list')
